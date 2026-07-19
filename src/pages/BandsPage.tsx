@@ -1,15 +1,17 @@
 import { useMemo, useState } from "react";
-import type { Day } from "../types";
+import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useAllBands } from "../state/useBands";
 import { STAGE_LIST } from "../db/seed";
 import { BandCard } from "../components/BandCard";
+import { BandDetail } from "../components/BandDetail";
 
 export function BandsPage() {
   const bands = useAllBands();
   const [day, setDay] = useState<Day>(1);
   const [stage, setStage] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [selectedBand, setSelectedBand] = useState<Band | null>(null);
 
   const stages = useMemo(() => {
     const fromData = Array.from(new Set(bands.map((b) => b.stage)));
@@ -22,6 +24,10 @@ export function BandsPage() {
       .filter((b) => stage === "all" || b.stage === stage)
       .filter((b) => b.name.toLowerCase().includes(query.trim().toLowerCase()));
   }, [bands, day, stage, query]);
+
+  if (selectedBand) {
+    return <BandDetail band={selectedBand} onBack={() => setSelectedBand(null)} />;
+  }
 
   return (
     <>
@@ -63,7 +69,7 @@ export function BandsPage() {
         {filtered.length === 0 ? (
           <div className="empty-state">No bands match. Try a different filter.</div>
         ) : (
-          filtered.map((b) => <BandCard key={b.id} band={b} />)
+          filtered.map((b) => <BandCard key={b.id} band={b} onSelect={setSelectedBand} />)
         )}
       </div>
     </>

@@ -17,8 +17,12 @@ export interface Rating {
   groupCode: string;
   bandId: string;
   userName: string;
-  rating: number; // 1-5, 0 means unrated/removed
-  notes: string;
+  /** How badly you want to see this band before the festival. 1-5, 0 means unrated. Feeds the group schedule optimizer. */
+  preRating: number;
+  preNotes: string;
+  /** How the actual performance was. 1-5, 0 means unrated. Never feeds the optimizer — it's just a record. */
+  duringRating: number;
+  duringNotes: string;
   updatedAt: string; // ISO timestamp, used for sync conflict resolution
 }
 

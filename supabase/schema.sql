@@ -18,12 +18,19 @@
 --    this on means every sign-up gets permanently stuck unconfirmed.
 --
 -- Upgrading from an earlier version of this file: policies changed from public
--- (anyone with the anon key) to requiring a logged-in account, and "ratings"/
--- "schedule" gained a group_code column with a new primary key. Since
--- `create table if not exists` won't alter an existing table, if you already
--- ran an older version of this script, drop the schema first (safe if it's
--- still empty): run `drop schema if exists lolla cascade;` then this whole
--- file again.
+-- (anyone with the anon key) to requiring a logged-in account, "ratings"/
+-- "schedule" gained a group_code column with a new primary key, and
+-- "ratings"'s single rating/notes pair was replaced with separate
+-- pre_rating/pre_notes (feeds the group schedule optimizer) and
+-- during_rating/during_notes (performance-quality record, never feeds the
+-- optimizer) columns. Since `create table if not exists` won't alter an
+-- existing table, if you already ran an older version of this script, drop
+-- the schema first: run `drop schema if exists lolla cascade;` then this
+-- whole file again. This deletes any existing rows in these tables — fine
+-- for a pre-launch app, but note that every device with local ratings will
+-- automatically re-push them next time it's online (sync always sends the
+-- full local ratings table, not just deltas), so no manual re-entry needed
+-- once everyone's phone reconnects.
 --
 -- Note on groups: "bands" and "stage_distances" are global (one shared festival
 -- lineup/map for everyone in this project). "ratings", "schedule", and
@@ -57,8 +64,10 @@ create table if not exists lolla.ratings (
   group_code text not null,
   band_id text not null,
   user_name text not null,
-  rating int not null,
-  notes text not null default '',
+  pre_rating int not null default 0,
+  pre_notes text not null default '',
+  during_rating int not null default 0,
+  during_notes text not null default '',
   updated_at timestamptz not null,
   primary key (group_code, band_id, user_name)
 );

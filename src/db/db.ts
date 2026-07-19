@@ -45,6 +45,30 @@ export class LollaDB extends Dexie {
         await tx.table("ratings").toCollection().modify({ groupCode: code });
         await tx.table("schedule").toCollection().modify({ groupCode: code });
       });
+    this.version(3)
+      .stores({
+        bands: "id, stage, day, startMinutes",
+        ratings: "++id, groupCode, bandId, userName, [groupCode+bandId+userName]",
+        schedule: "++id, groupCode, bandId, userName, [groupCode+bandId+userName]",
+        meta: "key",
+        stageDistances: "++id, &[stageA+stageB]",
+        groupSchedule: "++id, groupCode, day, [groupCode+day]",
+      })
+      .upgrade(async (tx) => {
+        // Single rating/notes -> pre-festival rating/notes (unchanged meaning: this is
+        // still the value that feeds the optimizer), plus a fresh, unrated during-festival pair.
+        await tx
+          .table("ratings")
+          .toCollection()
+          .modify((r) => {
+            r.preRating = r.rating;
+            r.preNotes = r.notes;
+            r.duringRating = 0;
+            r.duringNotes = "";
+            delete r.rating;
+            delete r.notes;
+          });
+      });
   }
 }
 

@@ -1,8 +1,18 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { notifyLocalChange } from "../lib/autoSync";
+import type { Rating } from "../types";
 
-export function useRating(groupCode: string, bandId: string, userName: string): number {
+export interface BandRating {
+  preRating: number;
+  preNotes: string;
+  duringRating: number;
+  duringNotes: string;
+}
+
+const EMPTY_RATING: BandRating = { preRating: 0, preNotes: "", duringRating: 0, duringNotes: "" };
+
+export function useBandRating(groupCode: string, bandId: string, userName: string): BandRating {
   const rating = useLiveQuery(
     () =>
       db.ratings
@@ -11,15 +21,33 @@ export function useRating(groupCode: string, bandId: string, userName: string): 
         .first(),
     [groupCode, bandId, userName],
   );
-  return rating?.rating ?? 0;
+  if (!rating) return EMPTY_RATING;
+  return {
+    preRating: rating.preRating,
+    preNotes: rating.preNotes,
+    duringRating: rating.duringRating,
+    duringNotes: rating.duringNotes,
+  };
 }
 
-export async function setRating(
+/** Cheap read for list-tile indicators that only need the pre-festival number, not notes. */
+export function usePreRating(groupCode: string, bandId: string, userName: string): number {
+  const rating = useLiveQuery(
+    () =>
+      db.ratings
+        .where("[groupCode+bandId+userName]")
+        .equals([groupCode, bandId, userName])
+        .first(),
+    [groupCode, bandId, userName],
+  );
+  return rating?.preRating ?? 0;
+}
+
+async function patchRating(
   groupCode: string,
   bandId: string,
   userName: string,
-  rating: number,
-  notes = "",
+  patch: Partial<Pick<Rating, "preRating" | "preNotes" | "duringRating" | "duringNotes">>,
 ) {
   if (!userName || !groupCode) return;
   const existing = await db.ratings
@@ -29,11 +57,37 @@ export async function setRating(
 
   const updatedAt = new Date().toISOString();
   if (existing) {
-    await db.ratings.update(existing.id!, { rating, notes, updatedAt });
+    await db.ratings.update(existing.id!, { ...patch, updatedAt });
   } else {
-    await db.ratings.add({ groupCode, bandId, userName, rating, notes, updatedAt });
+    await db.ratings.add({
+      groupCode,
+      bandId,
+      userName,
+      preRating: 0,
+      preNotes: "",
+      duringRating: 0,
+      duringNotes: "",
+      ...patch,
+      updatedAt,
+    });
   }
   notifyLocalChange();
+}
+
+export function setPreRating(groupCode: string, bandId: string, userName: string, preRating: number) {
+  return patchRating(groupCode, bandId, userName, { preRating });
+}
+
+export function setPreNotes(groupCode: string, bandId: string, userName: string, preNotes: string) {
+  return patchRating(groupCode, bandId, userName, { preNotes });
+}
+
+export function setDuringRating(groupCode: string, bandId: string, userName: string, duringRating: number) {
+  return patchRating(groupCode, bandId, userName, { duringRating });
+}
+
+export function setDuringNotes(groupCode: string, bandId: string, userName: string, duringNotes: string) {
+  return patchRating(groupCode, bandId, userName, { duringNotes });
 }
 
 /** All of the current group's ratings for a band (every member who's rated it). */

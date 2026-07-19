@@ -26,7 +26,9 @@ export async function generateGroupSchedule(groupCode: string, bands: Band[]): P
     db.stageDistances.toArray(),
   ]);
 
-  const weights = aggregateRatingWeights(ratings);
+  const weights = aggregateRatingWeights(
+    ratings.map((r) => ({ bandId: r.bandId, rating: r.preRating })),
+  );
   const walkMinutes = buildDistanceLookup(distances);
   const optimized = optimizeGroupSchedule(bands, weights, walkMinutes);
 

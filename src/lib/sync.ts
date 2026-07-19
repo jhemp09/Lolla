@@ -25,8 +25,10 @@ interface RemoteRating {
   group_code: string;
   band_id: string;
   user_name: string;
-  rating: number;
-  notes: string;
+  pre_rating: number;
+  pre_notes: string;
+  during_rating: number;
+  during_notes: string;
   updated_at: string;
 }
 
@@ -88,8 +90,10 @@ export async function pushToRemote(groupCode: string): Promise<void> {
     group_code: r.groupCode,
     band_id: r.bandId,
     user_name: r.userName,
-    rating: r.rating,
-    notes: r.notes,
+    pre_rating: r.preRating,
+    pre_notes: r.preNotes,
+    during_rating: r.duringRating,
+    during_notes: r.duringNotes,
     updated_at: r.updatedAt,
   }));
   const remoteSchedule: RemoteSchedule[] = schedule.map((s) => ({
@@ -198,8 +202,10 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
           groupCode: r.group_code,
           bandId: r.band_id,
           userName: r.user_name,
-          rating: r.rating,
-          notes: r.notes,
+          preRating: r.pre_rating,
+          preNotes: r.pre_notes,
+          duringRating: r.during_rating,
+          duringNotes: r.during_notes,
           updatedAt: r.updated_at,
         };
         if (existing) await db.ratings.update(existing.id!, local);

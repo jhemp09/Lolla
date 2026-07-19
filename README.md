@@ -21,6 +21,13 @@ at all.
   join theirs instead. View/copy your current code or switch to a different
   group anytime from the Sync tab — switching doesn't delete anything, your
   old group's data is just hidden until you switch back.
+- **Rating a band happens on its own detail screen**, not from the list — tap
+  a band tile to open it. Two independent ratings, each 1-5 with notes:
+  **pre-festival** ("how badly do you want to see this," feeds the group
+  schedule optimizer) and **during the festival** (how the actual set was —
+  a personal record, never affects scheduling). The list itself stays a fast
+  scan: name, time, stage, and a small read-only ★ indicator showing your
+  pre-festival rating once you've set one.
 - **The group schedule optimizer** builds one shared itinerary from everyone's
   ratings — it picks the set of bands that maximizes total group rating while
   only chaining two picks back to back if there's enough time to actually walk
