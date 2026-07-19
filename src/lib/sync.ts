@@ -1,5 +1,5 @@
 import { db } from "../db/db";
-import type { Band, Rating, ScheduleEntry, StageDistance, GroupScheduleEntry, Day } from "../types";
+import type { Band, Rating, ScheduleEntry, StageDistance } from "../types";
 import { getSupabaseClient } from "./supabaseClient";
 
 function client() {
@@ -46,29 +46,23 @@ interface RemoteStageDistance {
   minutes: number;
 }
 
-interface RemoteGroupSchedule {
-  group_code: string;
-  day: number;
-  order: number;
-  band_id: string;
-  generated_at: string;
-}
-
 /**
  * Pushes everything on this device up to the shared Supabase project. Bands and stage
  * distances are global (shared across every group in this project) and upserted. Ratings
- * and schedule are scoped to the current group. The group schedule is a generated
- * artifact, so it's replaced wholesale (delete + insert) rather than upserted.
+ * and schedule are scoped to the current group.
+ *
+ * Note: the group schedule itself is never pushed/pulled — it's computed locally on
+ * every device from ratings + stage distances (see useComputedGroupSchedule), both of
+ * which already sync here, so there's nothing extra to keep in sync for it.
  */
 export async function pushToRemote(groupCode: string): Promise<void> {
   const sb = client();
 
-  const [bands, distances, ratings, schedule, groupSchedule] = await Promise.all([
+  const [bands, distances, ratings, schedule] = await Promise.all([
     db.bands.toArray(),
     db.stageDistances.toArray(),
     db.ratings.where("groupCode").equals(groupCode).toArray(),
     db.schedule.where("groupCode").equals(groupCode).toArray(),
-    db.groupSchedule.where("groupCode").equals(groupCode).toArray(),
   ]);
 
   const remoteBands: RemoteBand[] = bands.map((b) => ({
@@ -103,13 +97,6 @@ export async function pushToRemote(groupCode: string): Promise<void> {
     added_at: s.addedAt,
     removed: s.removed,
   }));
-  const remoteGroupSchedule: RemoteGroupSchedule[] = groupSchedule.map((g) => ({
-    group_code: g.groupCode,
-    day: g.day,
-    order: g.order,
-    band_id: g.bandId,
-    generated_at: g.generatedAt,
-  }));
 
   if (remoteBands.length) {
     const { error } = await sb.from("bands").upsert(remoteBands, { onConflict: "id" });
@@ -133,39 +120,27 @@ export async function pushToRemote(groupCode: string): Promise<void> {
       .upsert(remoteSchedule, { onConflict: "group_code,band_id,user_name" });
     if (error) throw error;
   }
-
-  // Group schedule is a generated snapshot, not incrementally edited data — replace
-  // this group's remote rows wholesale so removed picks don't linger as stale rows.
-  const { error: delError } = await sb.from("group_schedule").delete().eq("group_code", groupCode);
-  if (delError) throw delError;
-  if (remoteGroupSchedule.length) {
-    const { error } = await sb.from("group_schedule").insert(remoteGroupSchedule);
-    if (error) throw error;
-  }
 }
 
 /** Pulls the shared project down and merges into local storage (last-write-wins by timestamp). */
 export async function pullFromRemote(groupCode: string): Promise<void> {
   const sb = client();
 
-  const [bandsRes, distancesRes, ratingsRes, scheduleRes, groupScheduleRes] = await Promise.all([
+  const [bandsRes, distancesRes, ratingsRes, scheduleRes] = await Promise.all([
     sb.from("bands").select("*"),
     sb.from("stage_distances").select("*"),
     sb.from("ratings").select("*").eq("group_code", groupCode),
     sb.from("schedule").select("*").eq("group_code", groupCode),
-    sb.from("group_schedule").select("*").eq("group_code", groupCode),
   ]);
   if (bandsRes.error) throw bandsRes.error;
   if (distancesRes.error) throw distancesRes.error;
   if (ratingsRes.error) throw ratingsRes.error;
   if (scheduleRes.error) throw scheduleRes.error;
-  if (groupScheduleRes.error) throw groupScheduleRes.error;
 
   const remoteBands = (bandsRes.data ?? []) as RemoteBand[];
   const remoteDistances = (distancesRes.data ?? []) as RemoteStageDistance[];
   const remoteRatings = (ratingsRes.data ?? []) as RemoteRating[];
   const remoteSchedule = (scheduleRes.data ?? []) as RemoteSchedule[];
-  const remoteGroupSchedule = (groupScheduleRes.data ?? []) as RemoteGroupSchedule[];
 
   if (remoteBands.length) {
     const bands: Band[] = remoteBands.map((b) => ({
@@ -233,21 +208,4 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
       }
     }
   });
-
-  if (remoteGroupSchedule.length) {
-    const remoteGeneratedAt = remoteGroupSchedule[0].generated_at;
-    const localRows = await db.groupSchedule.where("groupCode").equals(groupCode).toArray();
-    const localGeneratedAt = localRows[0]?.generatedAt ?? "";
-    if (new Date(remoteGeneratedAt) > new Date(localGeneratedAt)) {
-      const entries: GroupScheduleEntry[] = remoteGroupSchedule.map((g) => ({
-        groupCode: g.group_code,
-        day: g.day as Day,
-        order: g.order,
-        bandId: g.band_id,
-        generatedAt: g.generated_at,
-      }));
-      await db.groupSchedule.where("groupCode").equals(groupCode).delete();
-      await db.groupSchedule.bulkAdd(entries);
-    }
-  }
 }

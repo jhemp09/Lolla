@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS, formatMinutes } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
-import { useGroupSchedule } from "../state/useGroupSchedule";
+import { useComputedGroupSchedule } from "../state/useGroupSchedule";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
 import { useGroupMembers } from "../state/useGroupMembers";
@@ -44,10 +44,13 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
   const isSelf = effectiveMember === myUserName;
 
   const scheduleEntries = useUserSchedule(groupCode, effectiveMember);
-  const groupEntries = useGroupSchedule(groupCode);
+  const groupDays = useComputedGroupSchedule(groupCode, bands);
 
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
-  const groupBandIds = useMemo(() => new Set(groupEntries.map((e) => e.bandId)), [groupEntries]);
+  const groupBandIds = useMemo(
+    () => new Set(groupDays.flatMap((d) => d.bandIds)),
+    [groupDays],
+  );
 
   const stages = useMemo(() => {
     const fromData = Array.from(new Set(bands.map((b) => b.stage)));

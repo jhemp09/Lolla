@@ -33,12 +33,19 @@
 -- once everyone's phone reconnects.
 --
 -- Note on groups: "bands" and "stage_distances" are global (one shared festival
--- lineup/map for everyone in this project). "ratings", "schedule", and
--- "group_schedule" are scoped by group_code. Access control is now real (every
--- request must come from a logged-in Supabase Auth user), but group_code
--- itself is still just an application-level partition, not a security boundary
--- — any logged-in account in this project can read/write any group's rows.
--- Fine for a casual friend-group app; don't put anything sensitive here.
+-- lineup/map for everyone in this project). "ratings" and "schedule" are scoped
+-- by group_code. Access control is now real (every request must come from a
+-- logged-in Supabase Auth user), but group_code itself is still just an
+-- application-level partition, not a security boundary — any logged-in
+-- account in this project can read/write any group's rows. Fine for a casual
+-- friend-group app; don't put anything sensitive here.
+--
+-- No group_schedule table: the group schedule is computed locally on every
+-- device from ratings + stage_distances (both of which do sync), so there's
+-- nothing separate to store or sync for it. If you ran an older version of
+-- this file, a lolla.group_schedule table may still exist in your project —
+-- the app no longer reads or writes it, so it's safe to ignore or drop
+-- (`drop table if exists lolla.group_schedule;`).
 
 create schema if not exists lolla;
 
@@ -81,20 +88,10 @@ create table if not exists lolla.schedule (
   primary key (group_code, band_id, user_name)
 );
 
-create table if not exists lolla.group_schedule (
-  group_code text not null,
-  day int not null,
-  "order" int not null,
-  band_id text not null,
-  generated_at timestamptz not null,
-  primary key (group_code, day, "order")
-);
-
 alter table lolla.bands enable row level security;
 alter table lolla.stage_distances enable row level security;
 alter table lolla.ratings enable row level security;
 alter table lolla.schedule enable row level security;
-alter table lolla.group_schedule enable row level security;
 
 create policy "authenticated read bands" on lolla.bands for select using (auth.role() = 'authenticated');
 create policy "authenticated write bands" on lolla.bands for insert with check (auth.role() = 'authenticated');
@@ -112,15 +109,10 @@ create policy "authenticated read schedule" on lolla.schedule for select using (
 create policy "authenticated write schedule" on lolla.schedule for insert with check (auth.role() = 'authenticated');
 create policy "authenticated update schedule" on lolla.schedule for update using (auth.role() = 'authenticated');
 
-create policy "authenticated read group_schedule" on lolla.group_schedule for select using (auth.role() = 'authenticated');
-create policy "authenticated write group_schedule" on lolla.group_schedule for insert with check (auth.role() = 'authenticated');
-create policy "authenticated update group_schedule" on lolla.group_schedule for update using (auth.role() = 'authenticated');
-create policy "authenticated delete group_schedule" on lolla.group_schedule for delete using (auth.role() = 'authenticated');
-
 -- RLS policies alone aren't enough for a non-public schema: the API roles also
 -- need schema/table-level grants, since REST access is denied by default here.
 -- Deliberately not granting "anon" — every request must be from a logged-in account.
 grant usage on schema lolla to authenticated, service_role;
 grant select, insert, update, delete on lolla.bands, lolla.stage_distances,
-  lolla.ratings, lolla.schedule, lolla.group_schedule
+  lolla.ratings, lolla.schedule
   to authenticated, service_role;

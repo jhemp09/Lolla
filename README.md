@@ -28,12 +28,15 @@ at all.
   a personal record, never affects scheduling). The list itself stays a fast
   scan: name, time, stage, and a small read-only ★ indicator showing your
   pre-festival rating once you've set one.
-- **The Schedule tab has two halves.** "Group Schedule" is generated, not
+- **The Schedule tab has two halves.** "Group Schedule" is computed, not
   editable — it picks the set of bands that maximizes total group rating from
   everyone's pre-festival ratings, only chaining two picks back to back if
   there's enough time to actually walk between their stages. Plain algorithm
   (weighted interval scheduling with walk-time constraints), not an LLM call,
-  so it runs instantly and fully offline; hit Regenerate anytime ratings change.
+  and there's no generate button — it's a live view that recomputes instantly
+  whenever a rating changes, whether that's you rating a band or a teammate's
+  rating arriving on the next sync. Runs fully offline; it just won't reflect
+  anyone else's ratings until you're back online.
   "Individual Schedule" is your own editable schedule (add/remove from a band's
   detail screen), with a member switcher to view — read-only — anyone else in
   your group's individual schedule too. Both halves, and both other members'
