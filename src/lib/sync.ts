@@ -153,6 +153,11 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
       genre: b.genre,
       description: b.description,
     }));
+    // Bands are a global, admin-managed replace-the-whole-table dataset (like
+    // stage distances below), not additive rows — clear first or a device's
+    // original sample-seeded bands (different IDs, never overwritten by an
+    // upsert) sit alongside the real ones forever.
+    await db.bands.clear();
     await db.bands.bulkPut(bands);
   }
 
