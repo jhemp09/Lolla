@@ -14,6 +14,7 @@ export interface Band {
 
 export interface Rating {
   id?: number;
+  groupCode: string;
   bandId: string;
   userName: string;
   rating: number; // 1-5, 0 means unrated/removed
@@ -23,10 +24,29 @@ export interface Rating {
 
 export interface ScheduleEntry {
   id?: number;
+  groupCode: string;
   bandId: string;
   userName: string;
   addedAt: string; // ISO timestamp
   removed: boolean; // tombstone so removals can sync
+}
+
+/** Walking time between two stages, in minutes. Symmetric (stageA/stageB order doesn't matter). */
+export interface StageDistance {
+  id?: number;
+  stageA: string;
+  stageB: string;
+  minutes: number;
+}
+
+/** One pick in a computed group itinerary for a given day, in attendance order. */
+export interface GroupScheduleEntry {
+  id?: number;
+  groupCode: string;
+  day: Day;
+  order: number;
+  bandId: string;
+  generatedAt: string; // ISO timestamp, same for every row from one generation run
 }
 
 export interface SyncMeta {

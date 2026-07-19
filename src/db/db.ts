@@ -1,12 +1,22 @@
 import Dexie, { type Table } from "dexie";
-import type { Band, Rating, ScheduleEntry, SyncMeta } from "../types";
+import type {
+  Band,
+  Rating,
+  ScheduleEntry,
+  SyncMeta,
+  StageDistance,
+  GroupScheduleEntry,
+} from "../types";
 import { SAMPLE_BANDS } from "./seed";
+import { getGroupCode, generateGroupCode, setGroupCode } from "../state/useGroup";
 
 export class LollaDB extends Dexie {
   bands!: Table<Band, string>;
   ratings!: Table<Rating, number>;
   schedule!: Table<ScheduleEntry, number>;
   meta!: Table<SyncMeta, string>;
+  stageDistances!: Table<StageDistance, number>;
+  groupSchedule!: Table<GroupScheduleEntry, number>;
 
   constructor() {
     super("lolla-db");
@@ -16,6 +26,25 @@ export class LollaDB extends Dexie {
       schedule: "++id, bandId, userName, [bandId+userName]",
       meta: "key",
     });
+    this.version(2)
+      .stores({
+        bands: "id, stage, day, startMinutes",
+        ratings: "++id, groupCode, bandId, userName, [groupCode+bandId+userName]",
+        schedule: "++id, groupCode, bandId, userName, [groupCode+bandId+userName]",
+        meta: "key",
+        stageDistances: "++id, &[stageA+stageB]",
+        groupSchedule: "++id, groupCode, day, [groupCode+day]",
+      })
+      .upgrade(async (tx) => {
+        // Pre-group-code rows belong to whatever group this device is/becomes part of.
+        let code = getGroupCode();
+        if (!code) {
+          code = generateGroupCode();
+          setGroupCode(code);
+        }
+        await tx.table("ratings").toCollection().modify({ groupCode: code });
+        await tx.table("schedule").toCollection().modify({ groupCode: code });
+      });
   }
 }
 
@@ -43,4 +72,10 @@ export async function reseedSampleData(): Promise<void> {
 export async function importBands(bands: Band[]): Promise<void> {
   await db.bands.clear();
   await db.bands.bulkPut(bands);
+}
+
+/** Replaces the stage-distance matrix with an imported one (from CSV import). */
+export async function importStageDistances(distances: StageDistance[]): Promise<void> {
+  await db.stageDistances.clear();
+  await db.stageDistances.bulkPut(distances);
 }

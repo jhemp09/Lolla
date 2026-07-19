@@ -4,15 +4,17 @@ import { RatingStars } from "./RatingStars";
 import { useRating, setRating } from "../state/useRatings";
 import { useIsScheduled, addToSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useUserName } from "../state/useUser";
+import { useGroupCode } from "../state/useGroup";
 
 export function BandCard({ band }: { band: Band }) {
   const [userName] = useUserName();
-  const rating = useRating(band.id, userName);
-  const scheduled = useIsScheduled(band.id, userName);
+  const [groupCode] = useGroupCode();
+  const rating = useRating(groupCode, band.id, userName);
+  const scheduled = useIsScheduled(groupCode, band.id, userName);
 
   const toggleSchedule = () => {
-    if (scheduled) removeFromSchedule(band.id, userName);
-    else addToSchedule(band.id, userName);
+    if (scheduled) removeFromSchedule(groupCode, band.id, userName);
+    else addToSchedule(groupCode, band.id, userName);
   };
 
   return (
@@ -30,7 +32,7 @@ export function BandCard({ band }: { band: Band }) {
         {band.genre}
       </div>
       <div className="band-card-actions">
-        <RatingStars rating={rating} onChange={(r) => setRating(band.id, userName, r)} />
+        <RatingStars rating={rating} onChange={(r) => setRating(groupCode, band.id, userName, r)} />
         <button
           className={`schedule-btn${scheduled ? " added" : ""}`}
           onClick={toggleSchedule}

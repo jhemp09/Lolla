@@ -386,6 +386,15 @@
   color: var(--danger);
 }
 
+.group-code {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--accent);
+  flex: 1;
+}
+
 .toggle-switch {
   position: relative;
   display: inline-block;

@@ -4,8 +4,10 @@ import { DAY_LABELS, formatMinutes } from "../types";
 import { useAllBands } from "../state/useBands";
 import { useMySchedule, removeFromSchedule } from "../state/useSchedule";
 import { useUserName } from "../state/useUser";
+import { useGroupCode } from "../state/useGroup";
 import { STAGE_LIST } from "../db/seed";
 import { ItineraryGrid } from "../components/ItineraryGrid";
+import { GroupSchedulePanel } from "../components/GroupSchedulePanel";
 
 function findConflicts(bands: Band[]): Set<string> {
   const conflicts = new Set<string>();
@@ -26,9 +28,10 @@ function findConflicts(bands: Band[]): Set<string> {
 
 export function SchedulePage() {
   const [userName] = useUserName();
+  const [groupCode] = useGroupCode();
   const allBands = useAllBands();
-  const scheduleEntries = useMySchedule(userName);
-  const [view, setView] = useState<"list" | "grid">("grid");
+  const scheduleEntries = useMySchedule(groupCode, userName);
+  const [view, setView] = useState<"list" | "grid" | "group">("grid");
   const [day, setDay] = useState<Day>(1);
 
   const bandsById = useMemo(() => new Map(allBands.map((b) => [b.id, b])), [allBands]);
@@ -65,16 +68,23 @@ export function SchedulePage() {
         >
           List
         </button>
+        <button
+          className={`tab-btn${view === "group" ? " active" : ""}`}
+          onClick={() => setView("group")}
+        >
+          Group Pick
+        </button>
       </div>
 
-      {conflicts.size > 0 && (
-        <div className="conflict-banner">
-          ⚠ You have overlapping sets in your schedule — check the times below.
-        </div>
-      )}
+      {view === "group" && <GroupSchedulePanel bands={allBands} />}
 
-      {view === "grid" ? (
+      {view === "grid" && (
         <>
+          {conflicts.size > 0 && (
+            <div className="conflict-banner">
+              ⚠ You have overlapping sets in your schedule — check the times below.
+            </div>
+          )}
           <div className="day-tabs" style={{ padding: "0 0 10px" }}>
             {([1, 2, 3, 4] as Day[]).map((d) => (
               <button
@@ -88,32 +98,46 @@ export function SchedulePage() {
           </div>
           <ItineraryGrid bands={allBands} day={day} stages={stages} myBandIds={myBandIds} />
         </>
-      ) : myBands.length === 0 ? (
-        <div className="empty-state">
-          Your schedule is empty. Add bands from the Bands tab.
-        </div>
-      ) : (
-        myBands.map((b) => (
-          <div key={b.id} className="band-card">
-            <div className="band-card-top">
-              <div>
-                <div className="band-name">
-                  {b.name} {conflicts.has(b.id) && <span style={{ color: "var(--danger)" }}>⚠</span>}
+      )}
+
+      {view === "list" && (
+        <>
+          {conflicts.size > 0 && (
+            <div className="conflict-banner">
+              ⚠ You have overlapping sets in your schedule — check the times below.
+            </div>
+          )}
+          {myBands.length === 0 ? (
+            <div className="empty-state">
+              Your schedule is empty. Add bands from the Bands tab.
+            </div>
+          ) : (
+            myBands.map((b) => (
+              <div key={b.id} className="band-card">
+                <div className="band-card-top">
+                  <div>
+                    <div className="band-name">
+                      {b.name} {conflicts.has(b.id) && <span style={{ color: "var(--danger)" }}>⚠</span>}
+                    </div>
+                    <div className="band-meta">
+                      {DAY_LABELS[b.day]} · {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
+                    </div>
+                  </div>
+                  <span className="badge">{b.stage}</span>
                 </div>
-                <div className="band-meta">
-                  {DAY_LABELS[b.day]} · {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
+                <div className="band-card-actions">
+                  <span />
+                  <button
+                    className="schedule-btn added"
+                    onClick={() => removeFromSchedule(groupCode, b.id, userName)}
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
-              <span className="badge">{b.stage}</span>
-            </div>
-            <div className="band-card-actions">
-              <span />
-              <button className="schedule-btn added" onClick={() => removeFromSchedule(b.id, userName)}>
-                Remove
-              </button>
-            </div>
-          </div>
-        ))
+            ))
+          )}
+        </>
       )}
     </div>
   );

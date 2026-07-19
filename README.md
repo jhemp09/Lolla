@@ -12,6 +12,20 @@ at all.
 - **Ratings and schedule are per-person**, identified by a display name you pick
   on first launch (no accounts, no passwords) — so a shared group's data stays
   separated but syncs to the same backend.
+- **Groups are joined by a short code.** Leave the code field blank on first
+  launch to start a new group (you'll get a code to share); enter a friend's
+  code to join theirs instead. You can view/copy your current code or switch
+  to a different group anytime from the Sync tab — switching doesn't delete
+  anything, your old group's data is just hidden until you switch back.
+- **The group schedule optimizer** builds one shared itinerary from everyone's
+  ratings — it picks the set of bands that maximizes total group rating while
+  only chaining two picks back to back if there's enough time to actually walk
+  between their stages (Schedule tab → "Group Pick"). It's a plain algorithm
+  (weighted interval scheduling with walk-time constraints), not an LLM call,
+  so it runs instantly and fully offline. "Adopt into my schedule" copies its
+  picks into your personal schedule as a one-time, additive action — it never
+  overwrites anything you've picked yourself, and regenerating the group
+  schedule later doesn't retroactively change schedules people already adopted.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup sync with
   the group automatically in the background (debounced push on every local
@@ -77,3 +91,11 @@ To load your real one: export your spreadsheet as CSV with columns
 `HH:MM` 24h or `H:MM AM/PM`), then use **Import CSV** on the Sync tab. If sync
 is online, the import pushes automatically so the rest of the group picks it
 up on their next pull.
+
+## Importing real stage-to-stage walking times
+
+The group schedule optimizer needs to know how long it takes to walk between
+stages, or it can't tell a feasible back-to-back pick from an impossible one.
+Until you provide real numbers it assumes a flat 12-minute walk between any
+two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
+(one row per pair, order doesn't matter) via the Sync tab.

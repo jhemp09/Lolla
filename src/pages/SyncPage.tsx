@@ -2,8 +2,10 @@ import { useRef } from "react";
 import { useSyncConfig } from "../state/useSyncSettings";
 import { useOnlineMode } from "../state/useOnlineMode";
 import { useSyncStatus, notifyLocalChange } from "../lib/autoSync";
-import { reseedSampleData, importBands } from "../db/db";
-import { parseBandsCsv } from "../lib/csv";
+import { reseedSampleData, importBands, importStageDistances } from "../db/db";
+import { parseBandsCsv, parseStageDistancesCsv } from "../lib/csv";
+import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
+import { GroupCard } from "../components/GroupCard";
 
 const STATUS_TEXT: Record<string, string> = {
   offline: "Working offline. Nothing touches the network.",
@@ -18,6 +20,7 @@ export function SyncPage() {
   const [online, setOnline] = useOnlineMode();
   const { status, errorMessage } = useSyncStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const distancesInputRef = useRef<HTMLInputElement>(null);
 
   const doImport = async (file: File) => {
     try {
@@ -31,8 +34,22 @@ export function SyncPage() {
     }
   };
 
+  const doImportDistances = async (file: File) => {
+    try {
+      const text = await file.text();
+      const distances = parseStageDistancesCsv(text);
+      if (distances.length === 0) throw new Error("No rows found in that file.");
+      await importStageDistances(distances);
+      notifyLocalChange();
+    } catch {
+      alert("Couldn't import that file — check it has stage_a, stage_b, minutes columns.");
+    }
+  };
+
   return (
     <div className="main">
+      <GroupCard />
+
       <div className="sync-card">
         <div className="sync-row" style={{ marginTop: 0 }}>
           <div>
@@ -101,6 +118,33 @@ export function SyncPage() {
             }}
           >
             Reset to sample lineup
+          </button>
+        </div>
+      </div>
+
+      <div className="sync-card">
+        <h2 style={{ fontSize: 16 }}>Stage walking distances</h2>
+        <p className="status-text" style={{ marginTop: 6 }}>
+          Used by the group schedule optimizer to avoid back-to-back picks you can't
+          actually walk between in time. Import a CSV with columns: stage_a, stage_b,
+          minutes (one row per pair — order doesn't matter). Until you do, the
+          optimizer assumes a {DEFAULT_WALK_MINUTES}-minute walk between any two
+          different stages.
+        </p>
+        <input
+          ref={distancesInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) doImportDistances(file);
+            e.target.value = "";
+          }}
+        />
+        <div className="sync-row">
+          <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
+            Import CSV
           </button>
         </div>
       </div>

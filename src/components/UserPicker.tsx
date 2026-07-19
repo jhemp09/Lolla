@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { setUserName } from "../state/useUser";
+import { setGroupCode, generateGroupCode } from "../state/useGroup";
 
 export function UserPicker() {
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
 
   const submit = () => {
-    const trimmed = name.trim();
-    if (trimmed) setUserName(trimmed);
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    setGroupCode(code.trim() ? code : generateGroupCode());
+    setUserName(trimmedName);
   };
 
   return (
@@ -23,6 +27,17 @@ export function UserPicker() {
         onKeyDown={(e) => e.key === "Enter" && submit()}
         autoFocus
       />
+      <input
+        placeholder="Group code (optional)"
+        value={code}
+        onChange={(e) => setCode(e.target.value.toUpperCase())}
+        onKeyDown={(e) => e.key === "Enter" && submit()}
+        style={{ textTransform: "uppercase" }}
+      />
+      <p className="status-text" style={{ maxWidth: 280 }}>
+        Got a code from a friend already in a group? Enter it above to join
+        them. Otherwise leave it blank and you'll get a new code to share.
+      </p>
       <button className="primary-btn" onClick={submit} disabled={!name.trim()}>
         Let's go
       </button>

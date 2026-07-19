@@ -1,4 +1,4 @@
-import type { Band, Day } from "../types";
+import type { Band, Day, StageDistance } from "../types";
 
 /** Minimal CSV parser: handles quoted fields with commas, no multi-line cells. */
 function parseCsv(text: string): string[][] {
@@ -98,4 +98,30 @@ export function parseBandsCsv(text: string): Band[] {
       description,
     };
   });
+}
+
+/**
+ * Expected header (case-insensitive, underscores optional): stage_a/stagea, stage_b/stageb,
+ * minutes. One row per stage pair — only needs each pair once, order doesn't matter.
+ */
+export function parseStageDistancesCsv(text: string): StageDistance[] {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map((h) => h.trim().toLowerCase().replace(/_/g, ""));
+  const col = (name: string) => header.indexOf(name);
+
+  const aIdx = col("stagea");
+  const bIdx = col("stageb");
+  const minIdx = col("minutes");
+
+  if (aIdx === -1 || bIdx === -1 || minIdx === -1) {
+    throw new Error("CSV must have columns: stage_a, stage_b, minutes.");
+  }
+
+  return rows.slice(1).map((r) => ({
+    stageA: r[aIdx]?.trim() ?? "",
+    stageB: r[bIdx]?.trim() ?? "",
+    minutes: parseInt(r[minIdx], 10) || 0,
+  }));
 }

@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { pushToRemote, pullFromRemote } from "./sync";
 import { getSyncConfig, setLastSync } from "../state/useSyncSettings";
 import { isOnlineMode } from "../state/useOnlineMode";
+import { getGroupCode } from "../state/useGroup";
 
 export type SyncStatus = "offline" | "idle" | "syncing" | "error" | "unconfigured";
 
@@ -22,15 +23,16 @@ function setStatus(next: SyncStatus, message = "") {
 
 async function runSync() {
   const config = getSyncConfig();
+  const groupCode = getGroupCode();
   if (!isOnlineMode()) return;
-  if (!config.configured) {
+  if (!config.configured || !groupCode) {
     setStatus("unconfigured");
     return;
   }
   setStatus("syncing");
   try {
-    await pushToRemote(config.url, config.anonKey);
-    await pullFromRemote(config.url, config.anonKey);
+    await pushToRemote(config.url, config.anonKey, groupCode);
+    await pullFromRemote(config.url, config.anonKey, groupCode);
     setLastSync(new Date().toISOString());
     setStatus("idle");
   } catch (e) {
@@ -63,6 +65,13 @@ export function notifyLocalChange() {
   if (!isOnlineMode()) return;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(runSync, PUSH_DEBOUNCE_MS);
+}
+
+/** Call right after switching/joining a group so the new group's data fetches immediately. No-op while offline. */
+export function syncNow() {
+  if (!isOnlineMode()) return;
+  if (pushTimer) clearTimeout(pushTimer);
+  runSync();
 }
 
 function subscribe(listener: () => void) {
