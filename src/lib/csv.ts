@@ -1,5 +1,12 @@
 import type { Band, Day, StageDistance } from "../types";
 
+export interface RatingImportRow {
+  bandName: string;
+  userName: string;
+  preRating: number;
+  preNotes: string;
+}
+
 /** Minimal CSV parser: handles quoted fields with commas, no multi-line cells. */
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
@@ -124,4 +131,36 @@ export function parseStageDistancesCsv(text: string): StageDistance[] {
     stageB: r[bIdx]?.trim() ?? "",
     minutes: parseInt(r[minIdx], 10) || 0,
   }));
+}
+
+/**
+ * Expected header (case-insensitive): band, user, pre_rating, pre_notes (notes optional).
+ * One row per (band, person) pre-festival rating — matched to bands by name at import time,
+ * since a bulk historical import has no local band IDs to reference yet.
+ */
+export function parseRatingsCsv(text: string): RatingImportRow[] {
+  const rows = parseCsv(text);
+  if (rows.length < 2) return [];
+
+  const header = rows[0].map((h) => h.trim().toLowerCase().replace(/_/g, ""));
+  const col = (name: string) => header.indexOf(name);
+
+  const bandIdx = col("band");
+  const userIdx = col("user");
+  const ratingIdx = col("prerating");
+  const notesIdx = col("prenotes");
+
+  if (bandIdx === -1 || userIdx === -1 || ratingIdx === -1) {
+    throw new Error("CSV must have columns: band, user, pre_rating.");
+  }
+
+  return rows
+    .slice(1)
+    .map((r) => ({
+      bandName: r[bandIdx]?.trim() ?? "",
+      userName: r[userIdx]?.trim() ?? "",
+      preRating: parseInt(r[ratingIdx], 10) || 0,
+      preNotes: notesIdx !== -1 ? (r[notesIdx]?.trim() ?? "") : "",
+    }))
+    .filter((r) => r.bandName && r.userName);
 }

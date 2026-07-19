@@ -126,3 +126,17 @@ stages, or it can't tell a feasible back-to-back pick from an impossible one.
 Until you provide real numbers it assumes a flat 12-minute walk between any
 two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
 (one row per pair, order doesn't matter) via the Sync tab.
+
+## Bulk-importing pre-festival ratings
+
+If your group already collected pre-festival ratings somewhere else (a
+spreadsheet, a poll), you can load them in one shot instead of re-rating every
+band by hand in the app. Import your lineup first, then use **Import CSV**
+under "Import pre-festival ratings" on the Sync tab with columns `band, user,
+pre_rating, pre_notes` (notes optional) — one row per person per band. Bands
+are matched to the current lineup by name (case-insensitive), so the name in
+the CSV has to match exactly; unmatched rows are skipped and listed after
+import. `user` is just a free-text name, the same identity system ratings
+always use — the person doesn't need an account yet for their historical
+ratings to import; they only need to sign up using that same name later if
+they want their own device to pick up the same identity going forward.
