@@ -370,10 +370,35 @@
   cursor: pointer;
 }
 
-.grid-band.mine {
+.grid-band.group {
   background: var(--star);
   border-color: var(--star);
   color: #241900;
+}
+
+.grid-band.deviation {
+  background: var(--personal);
+  border-color: var(--personal);
+  color: #001a33;
+}
+
+.diff-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.diff-badge.group {
+  background: rgba(245, 166, 35, 0.15);
+  color: var(--star);
+}
+
+.diff-badge.deviation {
+  background: rgba(71, 191, 255, 0.15);
+  color: var(--personal);
 }
 
 .conflict-banner {

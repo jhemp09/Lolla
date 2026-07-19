@@ -15,7 +15,8 @@ export function useIsScheduled(groupCode: string, bandId: string, userName: stri
   return !!entry;
 }
 
-export function useMySchedule(groupCode: string, userName: string) {
+/** A given user's schedule entries in a group — "given" so it works for viewing any group member, not just yourself. */
+export function useUserSchedule(groupCode: string, userName: string) {
   return (
     useLiveQuery(
       () =>

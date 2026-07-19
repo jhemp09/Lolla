@@ -28,15 +28,21 @@ at all.
   a personal record, never affects scheduling). The list itself stays a fast
   scan: name, time, stage, and a small read-only ★ indicator showing your
   pre-festival rating once you've set one.
-- **The group schedule optimizer** builds one shared itinerary from everyone's
-  ratings — it picks the set of bands that maximizes total group rating while
-  only chaining two picks back to back if there's enough time to actually walk
-  between their stages (Schedule tab → "Group Pick"). It's a plain algorithm
+- **The Schedule tab has two halves.** "Group Schedule" is generated, not
+  editable — it picks the set of bands that maximizes total group rating from
+  everyone's pre-festival ratings, only chaining two picks back to back if
+  there's enough time to actually walk between their stages. Plain algorithm
   (weighted interval scheduling with walk-time constraints), not an LLM call,
-  so it runs instantly and fully offline. "Adopt into my schedule" copies its
-  picks into your personal schedule as a one-time, additive action — it never
-  overwrites anything you've picked yourself, and regenerating the group
-  schedule later doesn't retroactively change schedules people already adopted.
+  so it runs instantly and fully offline; hit Regenerate anytime ratings change.
+  "Individual Schedule" is your own editable schedule (add/remove from a band's
+  detail screen), with a member switcher to view — read-only — anyone else in
+  your group's individual schedule too. Both halves, and both other members'
+  schedules, support List and Grid views. Individual schedules color-code each
+  pick: gold if it matches the group schedule, blue if it's a personal
+  deviation the group didn't choose. "Adopt into my schedule" on the Group
+  Schedule copies its picks into your individual schedule as a one-time,
+  additive action — it never overwrites your own picks, and regenerating the
+  group schedule later doesn't retroactively change what you already adopted.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup sync with
   the group automatically in the background (debounced push on every local

@@ -3,17 +3,20 @@ import type { Band, Day } from "../types";
 import { formatMinutes } from "../types";
 import { openBandDetail } from "../state/useSelectedBand";
 
+export type HighlightCategory = "group" | "deviation";
+
 interface Props {
   bands: Band[];
   day: Day;
   stages: string[];
-  myBandIds: Set<string>;
+  /** bandId -> "group" (matches the group schedule) or "deviation" (this schedule's own pick, not in the group's). */
+  highlights?: Map<string, HighlightCategory>;
 }
 
 const SLOT_MINUTES = 15;
 const SLOT_HEIGHT = 16; // px per 15-minute row
 
-export function ItineraryGrid({ bands, day, stages, myBandIds }: Props) {
+export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
   const dayBands = useMemo(() => bands.filter((b) => b.day === day), [bands, day]);
 
   const { gridStart, totalSlots } = useMemo(() => {
@@ -91,7 +94,7 @@ export function ItineraryGrid({ bands, day, stages, myBandIds }: Props) {
                 }}
               >
                 <div
-                  className={`grid-band${myBandIds.has(band.id) ? " mine" : ""}`}
+                  className={`grid-band${highlights?.has(band.id) ? ` ${highlights.get(band.id)}` : ""}`}
                   onClick={() => openBandDetail(band.id)}
                 >
                   {band.name}
