@@ -15,18 +15,22 @@ function App() {
   const [userName] = useUserName();
   const [tab, setTab] = useState<Tab>("bands");
   const [online] = useOnlineMode();
+  const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
-    ensureSeeded();
+    ensureSeeded().then(() => setSeeded(true));
   }, []);
 
   useEffect(() => {
-    if (online) {
+    // Guard on `seeded` so a sync can never fire against an empty local DB
+    // (e.g. toggling online in the instant before first-run seeding finishes)
+    // and silently report "up to date" without actually pushing anything.
+    if (online && seeded) {
       startAutoSync();
       return stopAutoSync;
     }
     stopAutoSync();
-  }, [online]);
+  }, [online, seeded]);
 
   if (!userName) {
     return <UserPicker />;
