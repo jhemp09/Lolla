@@ -2,10 +2,12 @@ import { useRef } from "react";
 import { useSyncConfig } from "../state/useSyncSettings";
 import { useOnlineMode } from "../state/useOnlineMode";
 import { useUserName } from "../state/useUser";
+import { useGroupCode } from "../state/useGroup";
 import { signOut } from "../state/useAuth";
 import { useSyncStatus, notifyLocalChange } from "../lib/autoSync";
 import { reseedSampleData, importBands, importStageDistances } from "../db/db";
-import { parseBandsCsv, parseStageDistancesCsv } from "../lib/csv";
+import { importRatings } from "../state/useRatings";
+import { parseBandsCsv, parseStageDistancesCsv, parseRatingsCsv } from "../lib/csv";
 import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
 import { GroupCard } from "../components/GroupCard";
 
@@ -21,9 +23,11 @@ export function SyncPage() {
   const config = useSyncConfig();
   const [online, setOnline] = useOnlineMode();
   const [userName] = useUserName();
+  const [groupCode] = useGroupCode();
   const { status, errorMessage } = useSyncStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const distancesInputRef = useRef<HTMLInputElement>(null);
+  const ratingsInputRef = useRef<HTMLInputElement>(null);
 
   const doImport = async (file: File) => {
     try {
@@ -46,6 +50,25 @@ export function SyncPage() {
       notifyLocalChange();
     } catch {
       alert("Couldn't import that file — check it has stage_a, stage_b, minutes columns.");
+    }
+  };
+
+  const doImportRatings = async (file: File) => {
+    try {
+      const text = await file.text();
+      const rows = parseRatingsCsv(text);
+      if (rows.length === 0) throw new Error("No rows found in that file.");
+      const { imported, skipped } = await importRatings(groupCode, rows);
+      const uniqueSkipped = [...new Set(skipped)];
+      if (uniqueSkipped.length > 0) {
+        alert(
+          `Imported ${imported} rating(s). ${uniqueSkipped.length} band name(s) didn't match the current lineup and were skipped:\n\n${uniqueSkipped.join(", ")}`,
+        );
+      } else {
+        alert(`Imported ${imported} rating(s).`);
+      }
+    } catch {
+      alert("Couldn't import that file — check it has band, user, pre_rating columns.");
     }
   };
 
@@ -166,6 +189,32 @@ export function SyncPage() {
         />
         <div className="sync-row">
           <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
+            Import CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="sync-card">
+        <h2 style={{ fontSize: 16 }}>Import pre-festival ratings</h2>
+        <p className="status-text" style={{ marginTop: 6 }}>
+          For bulk-loading ratings someone already collected elsewhere. Import a CSV
+          with columns: band, user, pre_rating (1-5), pre_notes (optional). Bands are
+          matched by name against the currently imported lineup — import your lineup
+          first. Existing ratings for the same band/person are overwritten.
+        </p>
+        <input
+          ref={ratingsInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) doImportRatings(file);
+            e.target.value = "";
+          }}
+        />
+        <div className="sync-row">
+          <button className="primary-btn" onClick={() => ratingsInputRef.current?.click()}>
             Import CSV
           </button>
         </div>

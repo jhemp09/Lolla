@@ -2,6 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { notifyLocalChange } from "../lib/autoSync";
 import type { Rating } from "../types";
+import type { RatingImportRow } from "../lib/csv";
 
 export interface BandRating {
   preRating: number;
@@ -108,4 +109,56 @@ export function useBandRatings(groupCode: string, bandId: string) {
 /** Every rating recorded for the current group (used by the schedule optimizer). */
 export async function getGroupRatings(groupCode: string) {
   return db.ratings.where("groupCode").equals(groupCode).toArray();
+}
+
+/**
+ * Bulk-imports pre-festival ratings matched to the current lineup by band name
+ * (case-insensitive) rather than band ID, since a bulk historical import has no
+ * local IDs to reference. Rows whose band name doesn't match anything currently
+ * imported are skipped and reported back so the caller can surface them.
+ */
+export async function importRatings(
+  groupCode: string,
+  rows: RatingImportRow[],
+): Promise<{ imported: number; skipped: string[] }> {
+  const bands = await db.bands.toArray();
+  const byName = new Map(bands.map((b) => [b.name.trim().toLowerCase(), b.id]));
+
+  let imported = 0;
+  const skipped: string[] = [];
+  const updatedAt = new Date().toISOString();
+
+  for (const row of rows) {
+    const bandId = byName.get(row.bandName.trim().toLowerCase());
+    if (!bandId) {
+      skipped.push(row.bandName);
+      continue;
+    }
+    const existing = await db.ratings
+      .where("[groupCode+bandId+userName]")
+      .equals([groupCode, bandId, row.userName])
+      .first();
+    if (existing) {
+      await db.ratings.update(existing.id!, {
+        preRating: row.preRating,
+        preNotes: row.preNotes,
+        updatedAt,
+      });
+    } else {
+      await db.ratings.add({
+        groupCode,
+        bandId,
+        userName: row.userName,
+        preRating: row.preRating,
+        preNotes: row.preNotes,
+        duringRating: 0,
+        duringNotes: "",
+        updatedAt,
+      });
+    }
+    imported++;
+  }
+
+  if (imported > 0) notifyLocalChange();
+  return { imported, skipped };
 }
