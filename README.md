@@ -52,11 +52,15 @@ in that project.
 1. Open the SQL Editor in your Supabase project and run [`supabase/schema.sql`](./supabase/schema.sql).
    This creates the `lolla` schema and its three tables.
 2. **Required extra step for a non-public schema**: in the dashboard, go to
-   Project Settings → API → Exposed schemas, and add `lolla` to the
-   comma-separated list (keep `public` in there too if other apps need it).
-   Postgres schemas aren't visible to the REST API by default — skip this and
-   sync will silently fail.
-3. Grab the project's URL and anon public key from Project Settings → API.
+   Integrations → Data API → Settings → Exposed schemas, and add `lolla` to
+   the list (keep `public` there too if other apps need it). Postgres schemas
+   aren't visible to the REST API by default — skip this and sync will
+   silently fail. (Supabase reorganizes this dashboard periodically; if it's
+   not there, search Project Settings for "Exposed schemas" or "Data API".)
+3. Grab the project's URL and key from Settings → API Keys. Use the
+   **Publishable key** (`sb_publishable_...`) if your project has one, or the
+   legacy **anon public** key (`eyJ...`) if it doesn't — either works, they're
+   the same RLS-protected, public-safe role under different names.
 4. Set them as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — either in
    `.env.local` for local dev, or as Environment Variables in your Vercel/Netlify
    project settings for the deployed build. These are compiled into the app;
