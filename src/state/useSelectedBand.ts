@@ -1,10 +1,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-// Ephemeral navigation state (which band's detail view is open, if any) — shared
-// across tabs so tapping a band from the Bands list, Schedule list/grid, or the
-// Group Pick panel all open the same detail view. Not persisted: closing/reopening
-// the app should land back on the band list, not mid-detail.
-let selectedBandId: string | null = null;
+// Which band's detail view is open, if any — shared across tabs so tapping a
+// band from the Bands list, Schedule list/grid, or the Group Pick panel all
+// open the same detail view. Persisted like the active tab, so a refresh
+// while viewing a band's detail lands back on that same detail view.
+const STORAGE_KEY = "lolla-selected-band-id";
 const listeners = new Set<() => void>();
 
 function emitChange() {
@@ -17,16 +17,16 @@ function subscribe(listener: () => void) {
 }
 
 function getSnapshot(): string | null {
-  return selectedBandId;
+  return localStorage.getItem(STORAGE_KEY);
 }
 
 export function openBandDetail(bandId: string) {
-  selectedBandId = bandId;
+  localStorage.setItem(STORAGE_KEY, bandId);
   emitChange();
 }
 
 export function closeBandDetail() {
-  selectedBandId = null;
+  localStorage.removeItem(STORAGE_KEY);
   emitChange();
 }
 
