@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { signUp, signIn } from "../state/useAuth";
 import { useSyncConfig } from "../state/useSyncSettings";
+import { generateGroupCode } from "../state/useGroup";
 
 export function AuthScreen() {
   const config = useSyncConfig();
@@ -32,9 +33,11 @@ export function AuthScreen() {
 
     setBusy(true);
     setError("");
+    // A blank group code means "start a new group" — generate the actual code here rather
+    // than leaving it blank, or nothing would ever get assigned to this account's group.
     const result =
       mode === "signup"
-        ? await signUp(trimmedUser, password, firstName, groupCode)
+        ? await signUp(trimmedUser, password, firstName, groupCode.trim() || generateGroupCode())
         : await signIn(trimmedUser, password);
     setBusy(false);
 

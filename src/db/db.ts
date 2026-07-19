@@ -103,3 +103,16 @@ export async function importStageDistances(distances: StageDistance[]): Promise<
   await db.stageDistances.clear();
   await db.stageDistances.bulkPut(distances);
 }
+
+/**
+ * Re-tags locally saved ratings/schedule rows from one group code to another.
+ * Used when a device's local group code was previously empty (data recorded
+ * before the account had a real group code assigned) and just got a real one
+ * — that data belongs to the group the device is joining/starting, not left
+ * behind under the empty code where nothing can ever see it again.
+ */
+export async function reassignGroupCode(oldCode: string, newCode: string): Promise<void> {
+  if (oldCode === newCode) return;
+  await db.ratings.where("groupCode").equals(oldCode).modify({ groupCode: newCode });
+  await db.schedule.where("groupCode").equals(oldCode).modify({ groupCode: newCode });
+}
