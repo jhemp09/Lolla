@@ -1,9 +1,9 @@
 import { useCallback, useSyncExternalStore } from "react";
 
-export type Tab = "bands" | "schedule" | "sync";
+export type Tab = "bands" | "schedule" | "sync" | "admin";
 
 const STORAGE_KEY = "lolla-active-tab";
-const VALID_TABS: Tab[] = ["bands", "schedule", "sync"];
+const VALID_TABS: Tab[] = ["bands", "schedule", "sync", "admin"];
 const listeners = new Set<() => void>();
 
 function emitChange() {
