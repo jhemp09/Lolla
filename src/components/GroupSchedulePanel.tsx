@@ -9,6 +9,7 @@ import {
   adoptGroupSchedule,
   groupByDay,
 } from "../state/useGroupSchedule";
+import { openBandDetail } from "../state/useSelectedBand";
 
 export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
   const [groupCode] = useGroupCode();
@@ -78,7 +79,11 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
                 const band = bandsById.get(entry.bandId);
                 if (!band) return null;
                 return (
-                  <div key={entry.id} className="band-card">
+                  <div
+                    key={entry.id}
+                    className="band-card clickable"
+                    onClick={() => openBandDetail(band.id)}
+                  >
                     <div className="band-card-top">
                       <div>
                         <div className="band-name">{band.name}</div>

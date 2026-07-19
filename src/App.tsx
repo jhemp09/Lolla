@@ -4,9 +4,12 @@ import { useUserName } from "./state/useUser";
 import { useGroupCode } from "./state/useGroup";
 import { useOnlineMode } from "./state/useOnlineMode";
 import { useSession } from "./state/useAuth";
+import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
+import { useBand } from "./state/useBands";
 import { ensureSeeded } from "./db/db";
 import { startAutoSync, stopAutoSync } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
+import { BandDetail } from "./components/BandDetail";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SyncPage } from "./pages/SyncPage";
@@ -20,6 +23,8 @@ function App() {
   const [tab, setTab] = useState<Tab>("bands");
   const [online] = useOnlineMode();
   const [seeded, setSeeded] = useState(false);
+  const selectedBandId = useSelectedBandId();
+  const selectedBand = useBand(selectedBandId ?? undefined);
 
   useEffect(() => {
     ensureSeeded().then(() => setSeeded(true));
@@ -63,9 +68,15 @@ function App() {
         </div>
       </header>
 
-      {tab === "bands" && <BandsPage />}
-      {tab === "schedule" && <SchedulePage />}
-      {tab === "sync" && <SyncPage />}
+      {/* Kept mounted (just hidden) behind the detail view so switching back
+          doesn't lose local state like Schedule's List/Grid choice or Bands'
+          filters — only unmounts when the bottom nav actually changes tabs. */}
+      <div style={{ display: selectedBand ? "none" : "contents" }}>
+        {tab === "bands" && <BandsPage />}
+        {tab === "schedule" && <SchedulePage />}
+        {tab === "sync" && <SyncPage />}
+      </div>
+      {selectedBand && <BandDetail band={selectedBand} onBack={closeBandDetail} />}
 
       <nav className="bottom-nav">
         <button

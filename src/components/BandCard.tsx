@@ -3,14 +3,16 @@ import { formatMinutes } from "../types";
 import { usePreRating } from "../state/useRatings";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
+import { useOpenBandDetail } from "../state/useSelectedBand";
 
-export function BandCard({ band, onSelect }: { band: Band; onSelect: (band: Band) => void }) {
+export function BandCard({ band }: { band: Band }) {
   const [userName] = useUserName();
   const [groupCode] = useGroupCode();
   const preRating = usePreRating(groupCode, band.id, userName);
+  const open = useOpenBandDetail(band.id);
 
   return (
-    <div className="band-card clickable" onClick={() => onSelect(band)}>
+    <div className="band-card clickable" onClick={open}>
       <div className="band-card-top">
         <div>
           <div className="band-name">{band.name}</div>

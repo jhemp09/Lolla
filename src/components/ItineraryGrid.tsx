@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Band, Day } from "../types";
 import { formatMinutes } from "../types";
+import { openBandDetail } from "../state/useSelectedBand";
 
 interface Props {
   bands: Band[];
@@ -89,7 +90,10 @@ export function ItineraryGrid({ bands, day, stages, myBandIds }: Props) {
                   padding: 2,
                 }}
               >
-                <div className={`grid-band${myBandIds.has(band.id) ? " mine" : ""}`}>
+                <div
+                  className={`grid-band${myBandIds.has(band.id) ? " mine" : ""}`}
+                  onClick={() => openBandDetail(band.id)}
+                >
                   {band.name}
                 </div>
               </div>

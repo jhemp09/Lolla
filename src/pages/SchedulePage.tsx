@@ -8,6 +8,7 @@ import { useGroupCode } from "../state/useGroup";
 import { STAGE_LIST } from "../db/seed";
 import { ItineraryGrid } from "../components/ItineraryGrid";
 import { GroupSchedulePanel } from "../components/GroupSchedulePanel";
+import { openBandDetail } from "../state/useSelectedBand";
 
 function findConflicts(bands: Band[]): Set<string> {
   const conflicts = new Set<string>();
@@ -113,7 +114,7 @@ export function SchedulePage() {
             </div>
           ) : (
             myBands.map((b) => (
-              <div key={b.id} className="band-card">
+              <div key={b.id} className="band-card clickable" onClick={() => openBandDetail(b.id)}>
                 <div className="band-card-top">
                   <div>
                     <div className="band-name">
@@ -129,7 +130,10 @@ export function SchedulePage() {
                   <span />
                   <button
                     className="schedule-btn added"
-                    onClick={() => removeFromSchedule(groupCode, b.id, userName)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromSchedule(groupCode, b.id, userName);
+                    }}
                   >
                     Remove
                   </button>

@@ -367,6 +367,7 @@
   font-size: 11px;
   color: var(--text-h);
   height: 100%;
+  cursor: pointer;
 }
 
 .grid-band.mine {
