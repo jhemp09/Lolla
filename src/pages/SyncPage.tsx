@@ -1,14 +1,8 @@
-import { useRef } from "react";
 import { useSyncConfig } from "../state/useSyncSettings";
 import { useOnlineMode } from "../state/useOnlineMode";
 import { useUserName } from "../state/useUser";
-import { useGroupCode } from "../state/useGroup";
-import { signOut, useIsAdmin } from "../state/useAuth";
-import { useSyncStatus, notifyLocalChange } from "../lib/autoSync";
-import { reseedSampleData, importBands, importStageDistances } from "../db/db";
-import { importRatings } from "../state/useRatings";
-import { parseBandsCsv, parseStageDistancesCsv, parseRatingsCsv } from "../lib/csv";
-import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
+import { signOut } from "../state/useAuth";
+import { useSyncStatus } from "../lib/autoSync";
 import { GroupCard } from "../components/GroupCard";
 
 const STATUS_TEXT: Record<string, string> = {
@@ -23,55 +17,7 @@ export function SyncPage() {
   const config = useSyncConfig();
   const [online, setOnline] = useOnlineMode();
   const [userName] = useUserName();
-  const [groupCode] = useGroupCode();
-  const isAdmin = useIsAdmin();
   const { status, errorMessage } = useSyncStatus();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const distancesInputRef = useRef<HTMLInputElement>(null);
-  const ratingsInputRef = useRef<HTMLInputElement>(null);
-
-  const doImport = async (file: File) => {
-    try {
-      const text = await file.text();
-      const bands = parseBandsCsv(text);
-      if (bands.length === 0) throw new Error("No rows found in that file.");
-      await importBands(bands);
-      notifyLocalChange();
-    } catch {
-      alert("Couldn't import that file — check it has name, stage, day, start, end columns.");
-    }
-  };
-
-  const doImportDistances = async (file: File) => {
-    try {
-      const text = await file.text();
-      const distances = parseStageDistancesCsv(text);
-      if (distances.length === 0) throw new Error("No rows found in that file.");
-      await importStageDistances(distances);
-      notifyLocalChange();
-    } catch {
-      alert("Couldn't import that file — check it has stage_a, stage_b, minutes columns.");
-    }
-  };
-
-  const doImportRatings = async (file: File) => {
-    try {
-      const text = await file.text();
-      const rows = parseRatingsCsv(text);
-      if (rows.length === 0) throw new Error("No rows found in that file.");
-      const { imported, skipped } = await importRatings(groupCode, rows);
-      const uniqueSkipped = [...new Set(skipped)];
-      if (uniqueSkipped.length > 0) {
-        alert(
-          `Imported ${imported} rating(s). ${uniqueSkipped.length} band name(s) didn't match the current lineup and were skipped:\n\n${uniqueSkipped.join(", ")}`,
-        );
-      } else {
-        alert(`Imported ${imported} rating(s).`);
-      }
-    } catch {
-      alert("Couldn't import that file — check it has band, user, pre_rating columns.");
-    }
-  };
 
   return (
     <div className="main">
@@ -132,107 +78,6 @@ export function SyncPage() {
           signal) and everything keeps working from what's already on your phone.
         </p>
       </div>
-
-      {isAdmin ? (
-        <>
-          <div className="sync-card">
-            <h2 style={{ fontSize: 16 }}>Import your real lineup</h2>
-            <p className="status-text" style={{ marginTop: 6 }}>
-              Export your spreadsheet as CSV with columns: name, stage, day (1-4), start,
-              end (e.g. 14:30 or 2:30 PM), genre, description. This replaces the sample
-              lineup; ratings/schedule already saved for matching band IDs are kept.
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) doImport(file);
-                e.target.value = "";
-              }}
-            />
-            <div className="sync-row">
-              <button className="primary-btn" onClick={() => fileInputRef.current?.click()}>
-                Import CSV
-              </button>
-              <button
-                className="secondary-btn"
-                onClick={async () => {
-                  if (!confirm("Reset bands to the built-in sample dataset? Your ratings/schedule stay.")) return;
-                  await reseedSampleData();
-                  notifyLocalChange();
-                }}
-              >
-                Reset to sample lineup
-              </button>
-            </div>
-          </div>
-
-          <div className="sync-card">
-            <h2 style={{ fontSize: 16 }}>Stage walking distances</h2>
-            <p className="status-text" style={{ marginTop: 6 }}>
-              Used by the group schedule optimizer to avoid back-to-back picks you can't
-              actually walk between in time. Import a CSV with columns: stage_a, stage_b,
-              minutes (one row per pair — order doesn't matter). Until you do, the
-              optimizer assumes a {DEFAULT_WALK_MINUTES}-minute walk between any two
-              different stages.
-            </p>
-            <input
-              ref={distancesInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) doImportDistances(file);
-                e.target.value = "";
-              }}
-            />
-            <div className="sync-row">
-              <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
-                Import CSV
-              </button>
-            </div>
-          </div>
-
-          <div className="sync-card">
-            <h2 style={{ fontSize: 16 }}>Import pre-festival ratings</h2>
-            <p className="status-text" style={{ marginTop: 6 }}>
-              For bulk-loading ratings someone already collected elsewhere. Import a CSV
-              with columns: band, user, pre_rating (1-5), pre_notes (optional). Bands are
-              matched by name against the currently imported lineup — import your lineup
-              first. Existing ratings for the same band/person are overwritten.
-            </p>
-            <input
-              ref={ratingsInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) doImportRatings(file);
-                e.target.value = "";
-              }}
-            />
-            <div className="sync-row">
-              <button className="primary-btn" onClick={() => ratingsInputRef.current?.click()}>
-                Import CSV
-              </button>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="sync-card">
-          <h2 style={{ fontSize: 16 }}>Lineup &amp; bulk data</h2>
-          <p className="status-text" style={{ marginTop: 6 }}>
-            Only the group admin can import the lineup, stage distances, or bulk ratings
-            files. Everything else — your own ratings, schedule, and viewing the group's —
-            works the same either way.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

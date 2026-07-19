@@ -3,7 +3,7 @@ import "./App.css";
 import { useUserName } from "./state/useUser";
 import { useGroupCode } from "./state/useGroup";
 import { useOnlineMode } from "./state/useOnlineMode";
-import { useSession } from "./state/useAuth";
+import { useSession, useIsAdmin } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
 import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
@@ -14,9 +14,11 @@ import { BandDetail } from "./components/BandDetail";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SyncPage } from "./pages/SyncPage";
+import { AdminPage } from "./pages/AdminPage";
 
 function App() {
   const { session, loading: sessionLoading } = useSession();
+  const isAdmin = useIsAdmin();
   const [userName, setUserName] = useUserName();
   const [, setGroupCode] = useGroupCode();
   const [tab, setTab] = useTab();
@@ -50,6 +52,12 @@ function App() {
     if (meta.group_code) setGroupCode(meta.group_code);
   }, [session, setUserName, setGroupCode]);
 
+  // Guards against a stale "admin" tab persisting across a log-out/log-in as a
+  // non-admin account (or admin being revoked) — bounce back to a tab everyone has.
+  useEffect(() => {
+    if (tab === "admin" && !isAdmin) setTab("bands");
+  }, [tab, isAdmin, setTab]);
+
   if (sessionLoading) {
     return null;
   }
@@ -74,6 +82,7 @@ function App() {
         {tab === "bands" && <BandsPage />}
         {tab === "schedule" && <SchedulePage />}
         {tab === "sync" && <SyncPage />}
+        {tab === "admin" && isAdmin && <AdminPage />}
       </div>
       {selectedBand && <BandDetail band={selectedBand} onBack={closeBandDetail} />}
 
@@ -99,6 +108,15 @@ function App() {
           <span className="bottom-nav-icon">🔄</span>
           Sync
         </button>
+        {isAdmin && (
+          <button
+            className={`bottom-nav-btn${tab === "admin" ? " active" : ""}`}
+            onClick={() => setTab("admin")}
+          >
+            <span className="bottom-nav-icon">🛠️</span>
+            Admin
+          </button>
+        )}
       </nav>
     </>
   );

@@ -54,12 +54,14 @@ at all.
 - **Supabase credentials are baked in at build time**, not entered by end users
   — see "Setting up shared sync" below. Everyone in your group just sees a
   toggle, never a URL or API key.
-- **One admin per project manages the shared data.** Importing the lineup,
-  stage distances, or a bulk ratings CSV on the Sync tab is restricted to
-  whichever account you designate as admin — see "Making yourself the admin"
-  below. Everyone else can still rate bands, build their schedule, and view
-  the group's; they just don't see the import cards. This is enforced on the
-  server (Postgres row-level security), not just hidden in the UI.
+- **One admin per project manages the shared data**, in its own Admin tab that
+  only the admin account sees in the bottom nav at all — everyone else's nav
+  just has Bands/Schedule/Sync. That tab is where the lineup, stage
+  distances, and bulk ratings CSV imports live; see "Making yourself the
+  admin" below for how to designate that account. Everyone else can still
+  rate bands, build their schedule, and view the group's — this only affects
+  who can import files. Enforced on the server (Postgres row-level security),
+  not just hidden in the UI.
 
 ## Local development
 
@@ -118,9 +120,10 @@ Fine for a casual friend-group app; don't put anything sensitive here.
 
 ## Making yourself the admin
 
-The Sync tab's import cards (lineup, stage distances, bulk ratings) only show
-up for the account marked admin. There's no in-app "make admin" button —
-admin status lives in Supabase Auth's `app_metadata`, which (unlike
+The Admin tab (lineup, stage distances, bulk ratings imports) only shows up in
+the bottom nav for the account marked admin — everyone else doesn't see it at
+all. There's no in-app "make admin" button — admin status lives in Supabase
+Auth's `app_metadata`, which (unlike
 `user_metadata`, which the app itself writes for things like your display
 name) can *only* be set from the Supabase SQL editor or a service-role key,
 never by a signed-in user. That's what makes it safe to trust for gating
@@ -143,35 +146,36 @@ To revoke admin from an account, run the same update with `'{"role": null}'`
 
 ## Importing your real lineup
 
-*Admin only* — everyone else's Sync tab shows a note instead of these cards.
+*Admin only* — lives in the Admin tab, which only shows up in the bottom nav
+for the admin account.
 
 The app ships with a placeholder sample lineup so it's usable out of the box.
 To load your real one: export your spreadsheet as CSV with columns
 `name, stage, day, start, end, genre, description` (day is 1-4, start/end are
-`HH:MM` 24h or `H:MM AM/PM`), then use **Import CSV** on the Sync tab. If sync
+`HH:MM` 24h or `H:MM AM/PM`), then use **Import CSV** on the Admin tab. If sync
 is online, the import pushes automatically so the rest of the group picks it
 up on their next pull.
 
 ## Importing real stage-to-stage walking times
 
-*Admin only.*
+*Admin only* — Admin tab.
 
 The group schedule optimizer needs to know how long it takes to walk between
 stages, or it can't tell a feasible back-to-back pick from an impossible one.
 Until you provide real numbers it assumes a flat 12-minute walk between any
 two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
-(one row per pair, order doesn't matter) via the Sync tab.
+(one row per pair, order doesn't matter) via the Admin tab.
 
 ## Bulk-importing pre-festival ratings
 
-*Admin only* — everyone else can still rate bands themselves one at a time
-from each band's detail screen; this is specifically for writing ratings in
-bulk under someone else's name.
+*Admin only* — Admin tab. Everyone else can still rate bands themselves one at
+a time from each band's detail screen; this is specifically for writing
+ratings in bulk under someone else's name.
 
 If your group already collected pre-festival ratings somewhere else (a
 spreadsheet, a poll), you can load them in one shot instead of re-rating every
 band by hand in the app. Import your lineup first, then use **Import CSV**
-under "Import pre-festival ratings" on the Sync tab with columns `band, user,
+under "Import pre-festival ratings" on the Admin tab with columns `band, user,
 pre_rating, pre_notes` (notes optional) — one row per person per band. Bands
 are matched to the current lineup by name (case-insensitive), so the name in
 the CSV has to match exactly; unmatched rows are skipped and listed after
