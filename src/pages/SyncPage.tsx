@@ -3,7 +3,7 @@ import { useSyncConfig } from "../state/useSyncSettings";
 import { useOnlineMode } from "../state/useOnlineMode";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
-import { signOut } from "../state/useAuth";
+import { signOut, useIsAdmin } from "../state/useAuth";
 import { useSyncStatus, notifyLocalChange } from "../lib/autoSync";
 import { reseedSampleData, importBands, importStageDistances } from "../db/db";
 import { importRatings } from "../state/useRatings";
@@ -24,6 +24,7 @@ export function SyncPage() {
   const [online, setOnline] = useOnlineMode();
   const [userName] = useUserName();
   const [groupCode] = useGroupCode();
+  const isAdmin = useIsAdmin();
   const { status, errorMessage } = useSyncStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const distancesInputRef = useRef<HTMLInputElement>(null);
@@ -132,93 +133,106 @@ export function SyncPage() {
         </p>
       </div>
 
-      <div className="sync-card">
-        <h2 style={{ fontSize: 16 }}>Import your real lineup</h2>
-        <p className="status-text" style={{ marginTop: 6 }}>
-          Export your spreadsheet as CSV with columns: name, stage, day (1-4), start,
-          end (e.g. 14:30 or 2:30 PM), genre, description. This replaces the sample
-          lineup; ratings/schedule already saved for matching band IDs are kept.
-        </p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) doImport(file);
-            e.target.value = "";
-          }}
-        />
-        <div className="sync-row">
-          <button className="primary-btn" onClick={() => fileInputRef.current?.click()}>
-            Import CSV
-          </button>
-          <button
-            className="secondary-btn"
-            onClick={async () => {
-              if (!confirm("Reset bands to the built-in sample dataset? Your ratings/schedule stay.")) return;
-              await reseedSampleData();
-              notifyLocalChange();
-            }}
-          >
-            Reset to sample lineup
-          </button>
-        </div>
-      </div>
+      {isAdmin ? (
+        <>
+          <div className="sync-card">
+            <h2 style={{ fontSize: 16 }}>Import your real lineup</h2>
+            <p className="status-text" style={{ marginTop: 6 }}>
+              Export your spreadsheet as CSV with columns: name, stage, day (1-4), start,
+              end (e.g. 14:30 or 2:30 PM), genre, description. This replaces the sample
+              lineup; ratings/schedule already saved for matching band IDs are kept.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) doImport(file);
+                e.target.value = "";
+              }}
+            />
+            <div className="sync-row">
+              <button className="primary-btn" onClick={() => fileInputRef.current?.click()}>
+                Import CSV
+              </button>
+              <button
+                className="secondary-btn"
+                onClick={async () => {
+                  if (!confirm("Reset bands to the built-in sample dataset? Your ratings/schedule stay.")) return;
+                  await reseedSampleData();
+                  notifyLocalChange();
+                }}
+              >
+                Reset to sample lineup
+              </button>
+            </div>
+          </div>
 
-      <div className="sync-card">
-        <h2 style={{ fontSize: 16 }}>Stage walking distances</h2>
-        <p className="status-text" style={{ marginTop: 6 }}>
-          Used by the group schedule optimizer to avoid back-to-back picks you can't
-          actually walk between in time. Import a CSV with columns: stage_a, stage_b,
-          minutes (one row per pair — order doesn't matter). Until you do, the
-          optimizer assumes a {DEFAULT_WALK_MINUTES}-minute walk between any two
-          different stages.
-        </p>
-        <input
-          ref={distancesInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) doImportDistances(file);
-            e.target.value = "";
-          }}
-        />
-        <div className="sync-row">
-          <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
-            Import CSV
-          </button>
-        </div>
-      </div>
+          <div className="sync-card">
+            <h2 style={{ fontSize: 16 }}>Stage walking distances</h2>
+            <p className="status-text" style={{ marginTop: 6 }}>
+              Used by the group schedule optimizer to avoid back-to-back picks you can't
+              actually walk between in time. Import a CSV with columns: stage_a, stage_b,
+              minutes (one row per pair — order doesn't matter). Until you do, the
+              optimizer assumes a {DEFAULT_WALK_MINUTES}-minute walk between any two
+              different stages.
+            </p>
+            <input
+              ref={distancesInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) doImportDistances(file);
+                e.target.value = "";
+              }}
+            />
+            <div className="sync-row">
+              <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
+                Import CSV
+              </button>
+            </div>
+          </div>
 
-      <div className="sync-card">
-        <h2 style={{ fontSize: 16 }}>Import pre-festival ratings</h2>
-        <p className="status-text" style={{ marginTop: 6 }}>
-          For bulk-loading ratings someone already collected elsewhere. Import a CSV
-          with columns: band, user, pre_rating (1-5), pre_notes (optional). Bands are
-          matched by name against the currently imported lineup — import your lineup
-          first. Existing ratings for the same band/person are overwritten.
-        </p>
-        <input
-          ref={ratingsInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) doImportRatings(file);
-            e.target.value = "";
-          }}
-        />
-        <div className="sync-row">
-          <button className="primary-btn" onClick={() => ratingsInputRef.current?.click()}>
-            Import CSV
-          </button>
+          <div className="sync-card">
+            <h2 style={{ fontSize: 16 }}>Import pre-festival ratings</h2>
+            <p className="status-text" style={{ marginTop: 6 }}>
+              For bulk-loading ratings someone already collected elsewhere. Import a CSV
+              with columns: band, user, pre_rating (1-5), pre_notes (optional). Bands are
+              matched by name against the currently imported lineup — import your lineup
+              first. Existing ratings for the same band/person are overwritten.
+            </p>
+            <input
+              ref={ratingsInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) doImportRatings(file);
+                e.target.value = "";
+              }}
+            />
+            <div className="sync-row">
+              <button className="primary-btn" onClick={() => ratingsInputRef.current?.click()}>
+                Import CSV
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="sync-card">
+          <h2 style={{ fontSize: 16 }}>Lineup &amp; bulk data</h2>
+          <p className="status-text" style={{ marginTop: 6 }}>
+            Only the group admin can import the lineup, stage distances, or bulk ratings
+            files. Everything else — your own ratings, schedule, and viewing the group's —
+            works the same either way.
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

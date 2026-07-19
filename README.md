@@ -54,6 +54,12 @@ at all.
 - **Supabase credentials are baked in at build time**, not entered by end users
   — see "Setting up shared sync" below. Everyone in your group just sees a
   toggle, never a URL or API key.
+- **One admin per project manages the shared data.** Importing the lineup,
+  stage distances, or a bulk ratings CSV on the Sync tab is restricted to
+  whichever account you designate as admin — see "Making yourself the admin"
+  below. Everyone else can still rate bands, build their schedule, and view
+  the group's; they just don't see the import cards. This is enforced on the
+  server (Postgres row-level security), not just hidden in the UI.
 
 ## Local development
 
@@ -110,7 +116,34 @@ Note: every table requires a logged-in account (RLS checks `auth.role() =
 partition — any account in this project can read/write any group's rows.
 Fine for a casual friend-group app; don't put anything sensitive here.
 
+## Making yourself the admin
+
+The Sync tab's import cards (lineup, stage distances, bulk ratings) only show
+up for the account marked admin. There's no in-app "make admin" button —
+admin status lives in Supabase Auth's `app_metadata`, which (unlike
+`user_metadata`, which the app itself writes for things like your display
+name) can *only* be set from the Supabase SQL editor or a service-role key,
+never by a signed-in user. That's what makes it safe to trust for gating
+writes: any user could otherwise just call `supabase.auth.updateUser()` from
+the browser console and grant themselves whatever role they want.
+
+1. Sign up for your account in the app first, if you haven't already.
+2. In the Supabase SQL editor, run (swap in your username):
+   ```sql
+   update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"role": "admin"}'::jsonb
+   where email = 'yourusername@lolla.internal';
+   ```
+3. **Log out and back in** in the app. The admin flag is a claim baked into
+   your session token at login/refresh time, so it won't take effect until
+   your session picks up a fresh one.
+
+To revoke admin from an account, run the same update with `'{"role": null}'`
+(or any non-`"admin"` value) instead.
+
 ## Importing your real lineup
+
+*Admin only* — everyone else's Sync tab shows a note instead of these cards.
 
 The app ships with a placeholder sample lineup so it's usable out of the box.
 To load your real one: export your spreadsheet as CSV with columns
@@ -121,6 +154,8 @@ up on their next pull.
 
 ## Importing real stage-to-stage walking times
 
+*Admin only.*
+
 The group schedule optimizer needs to know how long it takes to walk between
 stages, or it can't tell a feasible back-to-back pick from an impossible one.
 Until you provide real numbers it assumes a flat 12-minute walk between any
@@ -128,6 +163,10 @@ two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
 (one row per pair, order doesn't matter) via the Sync tab.
 
 ## Bulk-importing pre-festival ratings
+
+*Admin only* — everyone else can still rate bands themselves one at a time
+from each band's detail screen; this is specifically for writing ratings in
+bulk under someone else's name.
 
 If your group already collected pre-festival ratings somewhere else (a
 spreadsheet, a poll), you can load them in one shot instead of re-rating every
