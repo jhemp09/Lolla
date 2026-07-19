@@ -6,6 +6,7 @@ import { useOnlineMode } from "./state/useOnlineMode";
 import { useSession } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
 import { useBand } from "./state/useBands";
+import { useTab } from "./state/useTab";
 import { ensureSeeded } from "./db/db";
 import { startAutoSync, stopAutoSync } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
@@ -14,13 +15,11 @@ import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SyncPage } from "./pages/SyncPage";
 
-type Tab = "bands" | "schedule" | "sync";
-
 function App() {
   const { session, loading: sessionLoading } = useSession();
   const [userName, setUserName] = useUserName();
   const [, setGroupCode] = useGroupCode();
-  const [tab, setTab] = useState<Tab>("bands");
+  const [tab, setTab] = useTab();
   const [online] = useOnlineMode();
   const [seeded, setSeeded] = useState(false);
   const selectedBandId = useSelectedBandId();
