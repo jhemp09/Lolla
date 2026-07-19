@@ -1,14 +1,13 @@
-import { createClient } from "@supabase/supabase-js";
 import { db } from "../db/db";
 import type { Band, Rating, ScheduleEntry, StageDistance, GroupScheduleEntry, Day } from "../types";
+import { getSupabaseClient } from "./supabaseClient";
 
-function client(url: string, anonKey: string) {
-  if (!url || !anonKey) {
+function client() {
+  const sb = getSupabaseClient();
+  if (!sb) {
     throw new Error("Set your Supabase URL and anon key first (Sync tab).");
   }
-  // Tables live in the "lolla" schema, not "public", so this project can be
-  // shared with unrelated apps without table-name collisions.
-  return createClient(url, anonKey, { db: { schema: "lolla" } });
+  return sb;
 }
 
 interface RemoteBand {
@@ -59,8 +58,8 @@ interface RemoteGroupSchedule {
  * and schedule are scoped to the current group. The group schedule is a generated
  * artifact, so it's replaced wholesale (delete + insert) rather than upserted.
  */
-export async function pushToRemote(url: string, anonKey: string, groupCode: string): Promise<void> {
-  const sb = client(url, anonKey);
+export async function pushToRemote(groupCode: string): Promise<void> {
+  const sb = client();
 
   const [bands, distances, ratings, schedule, groupSchedule] = await Promise.all([
     db.bands.toArray(),
@@ -142,8 +141,8 @@ export async function pushToRemote(url: string, anonKey: string, groupCode: stri
 }
 
 /** Pulls the shared project down and merges into local storage (last-write-wins by timestamp). */
-export async function pullFromRemote(url: string, anonKey: string, groupCode: string): Promise<void> {
-  const sb = client(url, anonKey);
+export async function pullFromRemote(groupCode: string): Promise<void> {
+  const sb = client();
 
   const [bandsRes, distancesRes, ratingsRes, scheduleRes, groupScheduleRes] = await Promise.all([
     sb.from("bands").select("*"),

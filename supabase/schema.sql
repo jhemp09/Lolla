@@ -2,28 +2,36 @@
 --
 -- Everything lives in its own "lolla" schema rather than "public" so it's clearly
 -- separated from any other apps sharing this project (visible as its own group in
--- Table Editor, zero naming collisions). Policies here are permissive, suitable for
--- a small trusted friend-group app with no login. Do not put sensitive data in this
--- project: anyone with the URL + anon key can read/write these tables.
+-- Table Editor, zero naming collisions).
 --
--- After running this, one manual step in the dashboard is required: go to
--- Integrations > Data API > Settings > Exposed schemas, and add "lolla" to the
--- list (comma-separated, alongside "public"). Postgres schemas aren't exposed to
--- the REST API by default, so skipping this step means the app can't reach these
--- tables.
+-- After running this, TWO manual dashboard steps are required:
 --
--- Upgrading from an earlier version of this file: the "ratings"/"schedule" tables
--- gained a group_code column and their primary key changed, and "stage_distances"/
--- "group_schedule" are new. Since `create table if not exists` won't alter an
--- existing table, if you already ran an older version of this script, drop the
--- schema first (safe if it's still empty, which "tables exist but no rows" means
--- it is): run `drop schema if exists lolla cascade;` then this whole file again.
+-- 1. Go to Integrations > Data API > Settings > Exposed schemas, and add "lolla"
+--    to the list (comma-separated, alongside "public"). Postgres schemas aren't
+--    exposed to the REST API by default, so skipping this means the app can't
+--    reach these tables at all.
+--
+-- 2. Go to Authentication > Providers > Email, and turn OFF "Confirm email".
+--    The app signs people up with a synthetic address (username@lolla.internal)
+--    since there's no real email collection step — nobody can click a
+--    confirmation link that goes to an inbox that doesn't exist, so leaving
+--    this on means every sign-up gets permanently stuck unconfirmed.
+--
+-- Upgrading from an earlier version of this file: policies changed from public
+-- (anyone with the anon key) to requiring a logged-in account, and "ratings"/
+-- "schedule" gained a group_code column with a new primary key. Since
+-- `create table if not exists` won't alter an existing table, if you already
+-- ran an older version of this script, drop the schema first (safe if it's
+-- still empty): run `drop schema if exists lolla cascade;` then this whole
+-- file again.
 --
 -- Note on groups: "bands" and "stage_distances" are global (one shared festival
 -- lineup/map for everyone in this project). "ratings", "schedule", and
--- "group_schedule" are scoped by group_code — there's no real access control
--- between groups here (the anon key is shared by everyone), group_code is just
--- an application-level partition, not a security boundary.
+-- "group_schedule" are scoped by group_code. Access control is now real (every
+-- request must come from a logged-in Supabase Auth user), but group_code
+-- itself is still just an application-level partition, not a security boundary
+-- — any logged-in account in this project can read/write any group's rows.
+-- Fine for a casual friend-group app; don't put anything sensitive here.
 
 create schema if not exists lolla;
 
@@ -79,30 +87,31 @@ alter table lolla.ratings enable row level security;
 alter table lolla.schedule enable row level security;
 alter table lolla.group_schedule enable row level security;
 
-create policy "public read bands" on lolla.bands for select using (true);
-create policy "public write bands" on lolla.bands for insert with check (true);
-create policy "public update bands" on lolla.bands for update using (true);
+create policy "authenticated read bands" on lolla.bands for select using (auth.role() = 'authenticated');
+create policy "authenticated write bands" on lolla.bands for insert with check (auth.role() = 'authenticated');
+create policy "authenticated update bands" on lolla.bands for update using (auth.role() = 'authenticated');
 
-create policy "public read stage_distances" on lolla.stage_distances for select using (true);
-create policy "public write stage_distances" on lolla.stage_distances for insert with check (true);
-create policy "public update stage_distances" on lolla.stage_distances for update using (true);
+create policy "authenticated read stage_distances" on lolla.stage_distances for select using (auth.role() = 'authenticated');
+create policy "authenticated write stage_distances" on lolla.stage_distances for insert with check (auth.role() = 'authenticated');
+create policy "authenticated update stage_distances" on lolla.stage_distances for update using (auth.role() = 'authenticated');
 
-create policy "public read ratings" on lolla.ratings for select using (true);
-create policy "public write ratings" on lolla.ratings for insert with check (true);
-create policy "public update ratings" on lolla.ratings for update using (true);
+create policy "authenticated read ratings" on lolla.ratings for select using (auth.role() = 'authenticated');
+create policy "authenticated write ratings" on lolla.ratings for insert with check (auth.role() = 'authenticated');
+create policy "authenticated update ratings" on lolla.ratings for update using (auth.role() = 'authenticated');
 
-create policy "public read schedule" on lolla.schedule for select using (true);
-create policy "public write schedule" on lolla.schedule for insert with check (true);
-create policy "public update schedule" on lolla.schedule for update using (true);
+create policy "authenticated read schedule" on lolla.schedule for select using (auth.role() = 'authenticated');
+create policy "authenticated write schedule" on lolla.schedule for insert with check (auth.role() = 'authenticated');
+create policy "authenticated update schedule" on lolla.schedule for update using (auth.role() = 'authenticated');
 
-create policy "public read group_schedule" on lolla.group_schedule for select using (true);
-create policy "public write group_schedule" on lolla.group_schedule for insert with check (true);
-create policy "public update group_schedule" on lolla.group_schedule for update using (true);
-create policy "public delete group_schedule" on lolla.group_schedule for delete using (true);
+create policy "authenticated read group_schedule" on lolla.group_schedule for select using (auth.role() = 'authenticated');
+create policy "authenticated write group_schedule" on lolla.group_schedule for insert with check (auth.role() = 'authenticated');
+create policy "authenticated update group_schedule" on lolla.group_schedule for update using (auth.role() = 'authenticated');
+create policy "authenticated delete group_schedule" on lolla.group_schedule for delete using (auth.role() = 'authenticated');
 
 -- RLS policies alone aren't enough for a non-public schema: the API roles also
 -- need schema/table-level grants, since REST access is denied by default here.
-grant usage on schema lolla to anon, authenticated, service_role;
+-- Deliberately not granting "anon" — every request must be from a logged-in account.
+grant usage on schema lolla to authenticated, service_role;
 grant select, insert, update, delete on lolla.bands, lolla.stage_distances,
   lolla.ratings, lolla.schedule, lolla.group_schedule
-  to anon, authenticated, service_role;
+  to authenticated, service_role;

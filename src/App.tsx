@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { useUserName } from "./state/useUser";
+import { useGroupCode } from "./state/useGroup";
 import { useOnlineMode } from "./state/useOnlineMode";
+import { useSession } from "./state/useAuth";
 import { ensureSeeded } from "./db/db";
 import { startAutoSync, stopAutoSync } from "./lib/autoSync";
-import { UserPicker } from "./components/UserPicker";
+import { AuthScreen } from "./components/AuthScreen";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SyncPage } from "./pages/SyncPage";
@@ -12,7 +14,9 @@ import { SyncPage } from "./pages/SyncPage";
 type Tab = "bands" | "schedule" | "sync";
 
 function App() {
-  const [userName] = useUserName();
+  const { session, loading: sessionLoading } = useSession();
+  const [userName, setUserName] = useUserName();
+  const [, setGroupCode] = useGroupCode();
   const [tab, setTab] = useState<Tab>("bands");
   const [online] = useOnlineMode();
   const [seeded, setSeeded] = useState(false);
@@ -32,8 +36,22 @@ function App() {
     stopAutoSync();
   }, [online, seeded]);
 
-  if (!userName) {
-    return <UserPicker />;
+  // The account is the source of truth for identity/group; mirror it into the
+  // local-only storage the rest of the app already reads, so nothing else has
+  // to change and everything still works offline once this has run once.
+  useEffect(() => {
+    if (!session) return;
+    const meta = session.user.user_metadata as { first_name?: string; group_code?: string };
+    if (meta.first_name) setUserName(meta.first_name);
+    if (meta.group_code) setGroupCode(meta.group_code);
+  }, [session, setUserName, setGroupCode]);
+
+  if (sessionLoading) {
+    return null;
+  }
+
+  if (!session) {
+    return <AuthScreen />;
   }
 
   return (

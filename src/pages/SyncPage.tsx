@@ -1,6 +1,8 @@
 import { useRef } from "react";
 import { useSyncConfig } from "../state/useSyncSettings";
 import { useOnlineMode } from "../state/useOnlineMode";
+import { useUserName } from "../state/useUser";
+import { signOut } from "../state/useAuth";
 import { useSyncStatus, notifyLocalChange } from "../lib/autoSync";
 import { reseedSampleData, importBands, importStageDistances } from "../db/db";
 import { parseBandsCsv, parseStageDistancesCsv } from "../lib/csv";
@@ -18,6 +20,7 @@ const STATUS_TEXT: Record<string, string> = {
 export function SyncPage() {
   const config = useSyncConfig();
   const [online, setOnline] = useOnlineMode();
+  const [userName] = useUserName();
   const { status, errorMessage } = useSyncStatus();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const distancesInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +51,25 @@ export function SyncPage() {
 
   return (
     <div className="main">
+      <div className="sync-card">
+        <div className="sync-row" style={{ marginTop: 0 }}>
+          <div>
+            <h2 style={{ fontSize: 16 }}>Account</h2>
+            <p className="status-text" style={{ marginTop: 4 }}>{userName}</p>
+          </div>
+          <button
+            className="secondary-btn"
+            onClick={() => {
+              if (confirm("Log out? Your data stays saved — you'll need your username and password to get back in.")) {
+                signOut();
+              }
+            }}
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+
       <GroupCard />
 
       <div className="sync-card">

@@ -9,14 +9,18 @@ at all.
 
 - **All data lives on your device** (IndexedDB via Dexie). The app never makes a
   network request while the Sync tab's toggle is off.
-- **Ratings and schedule are per-person**, identified by a display name you pick
-  on first launch (no accounts, no passwords) — so a shared group's data stays
-  separated but syncs to the same backend.
-- **Groups are joined by a short code.** Leave the code field blank on first
-  launch to start a new group (you'll get a code to share); enter a friend's
-  code to join theirs instead. You can view/copy your current code or switch
-  to a different group anytime from the Sync tab — switching doesn't delete
-  anything, your old group's data is just hidden until you switch back.
+- **Accounts are real** (username + password via Supabase Auth), so signing in
+  on a different device picks up the same identity — ratings/schedule are
+  attributed to your account, not just whatever name you happened to type.
+  Signing up or logging in on a new device needs network access (it's a real
+  server-side password check); once logged in, the session is cached locally
+  and normal use — rating, scheduling, viewing — stays fully offline just like
+  everything else, until you explicitly log out.
+- **Groups are joined by a short code**, entered at sign-up. Leave it blank to
+  start a new group (you'll get a code to share); enter a friend's code to
+  join theirs instead. View/copy your current code or switch to a different
+  group anytime from the Sync tab — switching doesn't delete anything, your
+  old group's data is just hidden until you switch back.
 - **The group schedule optimizer** builds one shared itinerary from everyone's
   ratings — it picks the set of bands that maximizes total group rating while
   only chaining two picks back to back if there's enough time to actually walk
@@ -64,24 +68,31 @@ running other apps — Lolla's tables live in their own `lolla` Postgres schema
 in that project.
 
 1. Open the SQL Editor in your Supabase project and run [`supabase/schema.sql`](./supabase/schema.sql).
-   This creates the `lolla` schema and its three tables.
-2. **Required extra step for a non-public schema**: in the dashboard, go to
-   Integrations → Data API → Settings → Exposed schemas, and add `lolla` to
-   the list (keep `public` there too if other apps need it). Postgres schemas
-   aren't visible to the REST API by default — skip this and sync will
-   silently fail. (Supabase reorganizes this dashboard periodically; if it's
-   not there, search Project Settings for "Exposed schemas" or "Data API".)
-3. Grab the project's URL and key from Settings → API Keys. Use the
+   This creates the `lolla` schema and its tables.
+2. **Required**: in the dashboard, go to Integrations → Data API → Settings →
+   Exposed schemas, and add `lolla` to the list (keep `public` there too if
+   other apps need it). Postgres schemas aren't visible to the REST API by
+   default — skip this and sync will silently fail. (Supabase reorganizes this
+   dashboard periodically; if it's not there, search Project Settings for
+   "Exposed schemas" or "Data API".)
+3. **Required**: go to Authentication → Providers → Email, and turn **off**
+   "Confirm email." The app signs people up with a synthetic address
+   (`username@lolla.internal`) since there's no real email step — nobody can
+   click a confirmation link that goes to an inbox that doesn't exist, so
+   leaving this on means every sign-up gets stuck unconfirmed and can never log in.
+4. Grab the project's URL and key from Settings → API Keys. Use the
    **Publishable key** (`sb_publishable_...`) if your project has one, or the
    legacy **anon public** key (`eyJ...`) if it doesn't — either works, they're
-   the same RLS-protected, public-safe role under different names.
-4. Set them as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — either in
+   the same public-safe role under different names.
+5. Set them as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — either in
    `.env.local` for local dev, or as Environment Variables in your Vercel/Netlify
    project settings for the deployed build. These are compiled into the app;
-   your group never sees or types them, they just get a toggle.
+   your group never sees or types them, they just sign up with a username/password.
 
-Note: the schema uses permissive open policies (no login) — fine for a casual
-friend-group app, but don't put anything sensitive in these three tables.
+Note: every table requires a logged-in account (RLS checks `auth.role() =
+'authenticated'`), but group_code itself is still just an application-level
+partition — any account in this project can read/write any group's rows.
+Fine for a casual friend-group app; don't put anything sensitive here.
 
 ## Importing your real lineup
 

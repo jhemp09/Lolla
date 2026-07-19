@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useGroupCode, generateGroupCode } from "../state/useGroup";
 import { syncNow } from "../lib/autoSync";
+import { updateAccountGroupCode } from "../state/useAuth";
 
 export function GroupCard() {
   const [groupCode, setGroupCode] = useGroupCode();
@@ -28,12 +29,15 @@ export function GroupCard() {
     setInput("");
     setJoining(false);
     syncNow();
+    updateAccountGroupCode(code);
   };
 
   const startNewGroup = () => {
     if (!confirm("Start a brand new group? You'll get a fresh code to share.")) return;
-    setGroupCode(generateGroupCode());
+    const code = generateGroupCode();
+    setGroupCode(code);
     syncNow();
+    updateAccountGroupCode(code);
   };
 
   return (

@@ -31,8 +31,8 @@ async function runSync() {
   }
   setStatus("syncing");
   try {
-    await pushToRemote(config.url, config.anonKey, groupCode);
-    await pullFromRemote(config.url, config.anonKey, groupCode);
+    await pushToRemote(groupCode);
+    await pullFromRemote(groupCode);
     setLastSync(new Date().toISOString());
     setStatus("idle");
   } catch (e) {
