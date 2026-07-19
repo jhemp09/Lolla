@@ -6,7 +6,9 @@ function client(url: string, anonKey: string) {
   if (!url || !anonKey) {
     throw new Error("Set your Supabase URL and anon key first (Sync tab).");
   }
-  return createClient(url, anonKey);
+  // Tables live in the "lolla" schema, not "public", so this project can be
+  // shared with unrelated apps without table-name collisions.
+  return createClient(url, anonKey, { db: { schema: "lolla" } });
 }
 
 interface RemoteBand {
