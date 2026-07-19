@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
+import { notifyLocalChange } from "../lib/autoSync";
 
 export function useRating(bandId: string, userName: string): number {
   const rating = useLiveQuery(
@@ -22,6 +23,7 @@ export async function setRating(bandId: string, userName: string, rating: number
   } else {
     await db.ratings.add({ bandId, userName, rating, notes, updatedAt });
   }
+  notifyLocalChange();
 }
 
 /** All ratings for a band, across every group member (for "shared group" visibility). */

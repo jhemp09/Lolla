@@ -1,27 +1,33 @@
 import { useSyncExternalStore } from "react";
 
-const URL_KEY = "lolla-supabase-url";
-const ANON_KEY = "lolla-supabase-anon-key";
 const LAST_SYNC_KEY = "lolla-last-sync";
 const listeners = new Set<() => void>();
 
-export interface SyncSettings {
+export interface SyncConfig {
   url: string;
   anonKey: string;
   lastSync: string;
+  /** False if this build wasn't given Supabase credentials at build time. */
+  configured: boolean;
 }
 
-function readSettings(): SyncSettings {
+// Baked in at build time (Vercel/Netlify env vars, or .env.local for dev).
+// Intentionally not user-editable: end users just see an online/offline toggle.
+const ENV_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
+const ENV_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+
+function readSettings(): SyncConfig {
   return {
-    url: localStorage.getItem(URL_KEY) ?? import.meta.env.VITE_SUPABASE_URL ?? "",
-    anonKey: localStorage.getItem(ANON_KEY) ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? "",
+    url: ENV_URL,
+    anonKey: ENV_ANON_KEY,
     lastSync: localStorage.getItem(LAST_SYNC_KEY) ?? "",
+    configured: !!ENV_URL && !!ENV_ANON_KEY,
   };
 }
 
 // Cached snapshot object: useSyncExternalStore requires getSnapshot to return
 // a referentially stable value between emits, or React re-renders forever.
-let cached: SyncSettings = readSettings();
+let cached: SyncConfig = readSettings();
 
 function emitChange() {
   cached = readSettings();
@@ -33,14 +39,8 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-function getSnapshot(): SyncSettings {
+function getSnapshot(): SyncConfig {
   return cached;
-}
-
-export function saveSyncSettings(url: string, anonKey: string) {
-  localStorage.setItem(URL_KEY, url.trim());
-  localStorage.setItem(ANON_KEY, anonKey.trim());
-  emitChange();
 }
 
 export function setLastSync(iso: string) {
@@ -48,6 +48,11 @@ export function setLastSync(iso: string) {
   emitChange();
 }
 
-export function useSyncSettings(): SyncSettings {
+export function useSyncConfig(): SyncConfig {
   return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+/** Non-hook read for use outside components (e.g. the auto-sync engine). */
+export function getSyncConfig(): SyncConfig {
+  return getSnapshot();
 }

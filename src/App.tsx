@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 import { useUserName } from "./state/useUser";
+import { useOnlineMode } from "./state/useOnlineMode";
 import { ensureSeeded } from "./db/db";
+import { startAutoSync, stopAutoSync } from "./lib/autoSync";
 import { UserPicker } from "./components/UserPicker";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
@@ -12,10 +14,19 @@ type Tab = "bands" | "schedule" | "sync";
 function App() {
   const [userName] = useUserName();
   const [tab, setTab] = useState<Tab>("bands");
+  const [online] = useOnlineMode();
 
   useEffect(() => {
     ensureSeeded();
   }, []);
+
+  useEffect(() => {
+    if (online) {
+      startAutoSync();
+      return stopAutoSync;
+    }
+    stopAutoSync();
+  }, [online]);
 
   if (!userName) {
     return <UserPicker />;

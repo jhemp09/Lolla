@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
+import { notifyLocalChange } from "../lib/autoSync";
 
 export function useIsScheduled(bandId: string, userName: string): boolean {
   const entry = useLiveQuery(
@@ -41,6 +42,7 @@ export async function addToSchedule(bandId: string, userName: string) {
   } else {
     await db.schedule.add({ bandId, userName, addedAt, removed: false });
   }
+  notifyLocalChange();
 }
 
 export async function removeFromSchedule(bandId: string, userName: string) {
@@ -51,5 +53,6 @@ export async function removeFromSchedule(bandId: string, userName: string) {
     .first();
   if (existing) {
     await db.schedule.update(existing.id!, { removed: true, addedAt: new Date().toISOString() });
+    notifyLocalChange();
   }
 }
