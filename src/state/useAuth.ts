@@ -86,6 +86,16 @@ export async function signOut(): Promise<void> {
   if (sb) await sb.auth.signOut();
 }
 
+/**
+ * Admin status lives in app_metadata, not user_metadata — app_metadata can only be set
+ * server-side (Supabase SQL editor / service role), never by the signed-in user themselves,
+ * so it's safe to trust for gating UI. See README "Making yourself the admin."
+ */
+export function useIsAdmin(): boolean {
+  const { session } = useSession();
+  return session?.user.app_metadata?.role === "admin";
+}
+
 /** Best-effort: keeps the account's saved group in sync so logging in on another device rejoins it. No-op if offline/unconfigured. */
 export async function updateAccountGroupCode(groupCode: string): Promise<void> {
   const sb = getSupabaseClient();

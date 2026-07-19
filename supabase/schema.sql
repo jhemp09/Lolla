@@ -4,7 +4,7 @@
 -- separated from any other apps sharing this project (visible as its own group in
 -- Table Editor, zero naming collisions).
 --
--- After running this, TWO manual dashboard steps are required:
+-- After running this, a few manual steps are required:
 --
 -- 1. Go to Integrations > Data API > Settings > Exposed schemas, and add "lolla"
 --    to the list (comma-separated, alongside "public"). Postgres schemas aren't
@@ -17,20 +17,29 @@
 --    confirmation link that goes to an inbox that doesn't exist, so leaving
 --    this on means every sign-up gets permanently stuck unconfirmed.
 --
--- Upgrading from an earlier version of this file: policies changed from public
--- (anyone with the anon key) to requiring a logged-in account, "ratings"/
--- "schedule" gained a group_code column with a new primary key, and
--- "ratings"'s single rating/notes pair was replaced with separate
--- pre_rating/pre_notes (feeds the group schedule optimizer) and
--- during_rating/during_notes (performance-quality record, never feeds the
--- optimizer) columns. Since `create table if not exists` won't alter an
--- existing table, if you already ran an older version of this script, drop
--- the schema first: run `drop schema if exists lolla cascade;` then this
--- whole file again. This deletes any existing rows in these tables — fine
--- for a pre-launch app, but note that every device with local ratings will
--- automatically re-push them next time it's online (sync always sends the
--- full local ratings table, not just deltas), so no manual re-entry needed
--- once everyone's phone reconnects.
+-- 3. Make yourself the admin so the lineup/ratings import CSVs are usable —
+--    see "Making yourself the admin" in the README for the one-line SQL and
+--    why it has to be run this way instead of from the app.
+--
+-- Upgrading from an earlier version of this file, where a table's *columns*
+-- changed (not just its policies): policies changed from public (anyone with
+-- the anon key) to requiring a logged-in account, "ratings"/"schedule" gained
+-- a group_code column with a new primary key, and "ratings"'s single
+-- rating/notes pair was replaced with separate pre_rating/pre_notes (feeds
+-- the group schedule optimizer) and during_rating/during_notes
+-- (performance-quality record, never feeds the optimizer) columns. Since
+-- `create table if not exists` won't alter an existing table, if you're
+-- upgrading across one of those changes specifically, drop the schema first:
+-- run `drop schema if exists lolla cascade;` then this whole file again. This
+-- deletes any existing rows in these tables — fine for a pre-launch app, but
+-- note that every device with local ratings will automatically re-push them
+-- next time it's online (sync always sends the full local ratings table, not
+-- just deltas), so no manual re-entry needed once everyone's phone reconnects.
+--
+-- Policy-only changes (like the admin gating below) don't need any of that —
+-- every `create policy` here is preceded by a matching `drop policy if
+-- exists`, so just re-running this whole file against your existing project
+-- picks up the new rules in place, with all your data untouched.
 --
 -- Note on groups: "bands" and "stage_distances" are global (one shared festival
 -- lineup/map for everyone in this project). "ratings" and "schedule" are scoped
@@ -46,6 +55,16 @@
 -- this file, a lolla.group_schedule table may still exist in your project —
 -- the app no longer reads or writes it, so it's safe to ignore or drop
 -- (`drop table if exists lolla.group_schedule;`).
+--
+-- Admin gating: "bands" and "stage_distances" (the lineup + walking-distance
+-- CSV imports) can now only be written by an account with app_metadata
+-- {"role": "admin"} — see "Making yourself the admin" in the README. Everyone
+-- can still read them. app_metadata is never client-writable (only via SQL
+-- editor or the service role), unlike user_metadata, so it's safe to trust in
+-- a policy. "ratings" now also requires either owning the row (user_name
+-- matches your own account's first_name) or being admin, so a non-admin can
+-- still rate bands themselves but can't bulk-write ratings under someone
+-- else's name via the ratings CSV import.
 
 create schema if not exists lolla;
 
@@ -93,18 +112,48 @@ alter table lolla.stage_distances enable row level security;
 alter table lolla.ratings enable row level security;
 alter table lolla.schedule enable row level security;
 
+drop policy if exists "authenticated read bands" on lolla.bands;
+drop policy if exists "authenticated write bands" on lolla.bands;
+drop policy if exists "admin write bands" on lolla.bands;
+drop policy if exists "authenticated update bands" on lolla.bands;
+drop policy if exists "admin update bands" on lolla.bands;
 create policy "authenticated read bands" on lolla.bands for select using (auth.role() = 'authenticated');
-create policy "authenticated write bands" on lolla.bands for insert with check (auth.role() = 'authenticated');
-create policy "authenticated update bands" on lolla.bands for update using (auth.role() = 'authenticated');
+create policy "admin write bands" on lolla.bands for insert with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "admin update bands" on lolla.bands for update using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+drop policy if exists "authenticated read stage_distances" on lolla.stage_distances;
+drop policy if exists "authenticated write stage_distances" on lolla.stage_distances;
+drop policy if exists "admin write stage_distances" on lolla.stage_distances;
+drop policy if exists "authenticated update stage_distances" on lolla.stage_distances;
+drop policy if exists "admin update stage_distances" on lolla.stage_distances;
 create policy "authenticated read stage_distances" on lolla.stage_distances for select using (auth.role() = 'authenticated');
-create policy "authenticated write stage_distances" on lolla.stage_distances for insert with check (auth.role() = 'authenticated');
-create policy "authenticated update stage_distances" on lolla.stage_distances for update using (auth.role() = 'authenticated');
+create policy "admin write stage_distances" on lolla.stage_distances for insert with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "admin update stage_distances" on lolla.stage_distances for update using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
+drop policy if exists "authenticated read ratings" on lolla.ratings;
+drop policy if exists "authenticated write ratings" on lolla.ratings;
+drop policy if exists "self or admin write ratings" on lolla.ratings;
+drop policy if exists "authenticated update ratings" on lolla.ratings;
+drop policy if exists "self or admin update ratings" on lolla.ratings;
 create policy "authenticated read ratings" on lolla.ratings for select using (auth.role() = 'authenticated');
-create policy "authenticated write ratings" on lolla.ratings for insert with check (auth.role() = 'authenticated');
-create policy "authenticated update ratings" on lolla.ratings for update using (auth.role() = 'authenticated');
+create policy "self or admin write ratings" on lolla.ratings for insert with check (
+  auth.role() = 'authenticated'
+  and (
+    user_name = (auth.jwt() -> 'user_metadata' ->> 'first_name')
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  )
+);
+create policy "self or admin update ratings" on lolla.ratings for update using (
+  auth.role() = 'authenticated'
+  and (
+    user_name = (auth.jwt() -> 'user_metadata' ->> 'first_name')
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  )
+);
 
+drop policy if exists "authenticated read schedule" on lolla.schedule;
+drop policy if exists "authenticated write schedule" on lolla.schedule;
+drop policy if exists "authenticated update schedule" on lolla.schedule;
 create policy "authenticated read schedule" on lolla.schedule for select using (auth.role() = 'authenticated');
 create policy "authenticated write schedule" on lolla.schedule for insert with check (auth.role() = 'authenticated');
 create policy "authenticated update schedule" on lolla.schedule for update using (auth.role() = 'authenticated');
