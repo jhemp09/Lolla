@@ -391,13 +391,13 @@
   border-radius: 4px;
   padding: 1px 3px;
   font-size: 9.5px;
-  line-height: 1.35;
+  line-height: 1.2;
   color: var(--text-h);
   height: 100%;
   cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
   display: flex;
   align-items: center;
 }
