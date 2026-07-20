@@ -1,6 +1,7 @@
 import { db } from "../db/db";
 import type { Band, Rating, ScheduleEntry, StageDistance } from "../types";
 import { getSupabaseClient } from "./supabaseClient";
+import { getUserName } from "../state/useUser";
 
 function client() {
   const sb = getSupabaseClient();
@@ -48,14 +49,20 @@ interface RemoteStageDistance {
 
 /**
  * Pushes everything on this device up to the shared Supabase project. Ratings and
- * schedule are scoped to the current group and pushed for every account. Bands and
- * stage distances are global (shared across every group in this project) and
- * admin-managed — RLS only allows an admin account to write them, so a non-admin
- * skips them entirely rather than triggering a doomed write. When an admin does push
- * them, it's a full replace (delete anything remote that isn't in the current local
- * set, not just an upsert) so the shared table can't accumulate stale rows a local
- * device no longer has — e.g. sample-seeded bands that got pushed up before a local
- * table was properly replaced by a real import.
+ * schedule are scoped to the current group; a device's local copy of both includes
+ * every group member's rows (pulled down so the optimizer and "view someone else's
+ * schedule" both work), but RLS only allows writing your own row (or, for an admin,
+ * anyone's) — so the push filters to just those before sending, rather than batching
+ * up rows it has no permission for. A single disallowed row fails the whole upsert
+ * (Postgres rejects the batch, not just that row), which used to silently break sync
+ * for anyone whose local table had picked up a teammate's ratings. Bands and stage
+ * distances are global (shared across every group in this project) and admin-managed
+ * — RLS only allows an admin account to write them, so a non-admin skips them
+ * entirely rather than triggering a doomed write. When an admin does push them, it's
+ * a full replace (delete anything remote that isn't in the current local set, not
+ * just an upsert) so the shared table can't accumulate stale rows a local device no
+ * longer has — e.g. sample-seeded bands that got pushed up before a local table was
+ * properly replaced by a real import.
  *
  * Note: the group schedule itself is never pushed/pulled — it's computed locally on
  * every device from ratings + stage distances (see useComputedGroupSchedule), both of
@@ -72,8 +79,10 @@ export async function pushToRemote(groupCode: string): Promise<void> {
     sb.auth.getSession(),
   ]);
   const isAdmin = sessionData.session?.user.app_metadata?.role === "admin";
+  const myUserName = getUserName();
+  const ownRow = (userName: string) => isAdmin || userName === myUserName;
 
-  const remoteRatings: RemoteRating[] = ratings.map((r) => ({
+  const remoteRatings: RemoteRating[] = ratings.filter((r) => ownRow(r.userName)).map((r) => ({
     group_code: r.groupCode,
     band_id: r.bandId,
     user_name: r.userName,
@@ -83,7 +92,7 @@ export async function pushToRemote(groupCode: string): Promise<void> {
     during_notes: r.duringNotes,
     updated_at: r.updatedAt,
   }));
-  const remoteSchedule: RemoteSchedule[] = schedule.map((s) => ({
+  const remoteSchedule: RemoteSchedule[] = schedule.filter((s) => ownRow(s.userName)).map((s) => ({
     group_code: s.groupCode,
     band_id: s.bandId,
     user_name: s.userName,
