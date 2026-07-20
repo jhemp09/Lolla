@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useGroupCode } from "../state/useGroup";
 import { notifyLocalChange } from "../lib/autoSync";
-import { importBands, importStageDistances, migrateDescriptionNotes } from "../db/db";
+import { importBands, importStageDistances } from "../db/db";
 import { importRatings } from "../state/useRatings";
 import { parseBandsCsv, parseStageDistancesCsv, parseRatingsCsv } from "../lib/csv";
 import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
@@ -53,16 +53,6 @@ export function AdminPage() {
     } catch {
       alert("Couldn't import that file — check it has band, user, pre_rating columns.");
     }
-  };
-
-  const doMigrateDescriptionNotes = async () => {
-    const migrated = await migrateDescriptionNotes(groupCode, ["Jess", "Tomek"]);
-    notifyLocalChange();
-    alert(
-      migrated > 0
-        ? `Moved notes for ${migrated} band(s) into Jess's and Tomek's pre-festival notes, and cleared their description.`
-        : "Nothing to migrate — no bands currently have a description.",
-    );
   };
 
   return (
@@ -141,22 +131,6 @@ export function AdminPage() {
         <div className="sync-row">
           <button className="primary-btn" onClick={() => ratingsInputRef.current?.click()}>
             Import CSV
-          </button>
-        </div>
-      </div>
-
-      <div className="sync-card">
-        <h2 style={{ fontSize: 16 }}>One-time cleanup: move description notes</h2>
-        <p className="status-text" style={{ marginTop: 6 }}>
-          A spreadsheet import put Jess's and Tomek's personal notes into each band's
-          shared description field instead of their own pre-festival notes. This moves
-          that text onto the end of both of their pre-festival notes (below anything
-          already there) and clears the description. Safe to run again — a second pass
-          finds nothing left to move.
-        </p>
-        <div className="sync-row">
-          <button className="primary-btn" onClick={doMigrateDescriptionNotes}>
-            Migrate notes
           </button>
         </div>
       </div>
