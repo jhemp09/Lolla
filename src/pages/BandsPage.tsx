@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useAllBands } from "../state/useBands";
-import { STAGE_LIST } from "../db/seed";
 import { BandCard } from "../components/BandCard";
 import { FilterChipRow } from "../components/FilterChipRow";
 
@@ -22,10 +21,10 @@ export function BandsPage() {
   const [genres, setGenres] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
 
-  const stageOptions = useMemo(() => {
-    const fromData = Array.from(new Set(bands.map((b) => b.stage))).sort();
-    return fromData.length ? fromData : STAGE_LIST;
-  }, [bands]);
+  const stageOptions = useMemo(
+    () => Array.from(new Set(bands.map((b) => b.stage))).sort(),
+    [bands],
+  );
 
   const genreOptions = useMemo(
     () => Array.from(new Set(bands.map((b) => b.genre))).sort(),
@@ -96,7 +95,12 @@ export function BandsPage() {
         </button>
       )}
 
-      {filtered.length === 0 ? (
+      {bands.length === 0 ? (
+        <div className="empty-state">
+          No lineup yet — the admin needs to import it from the Admin tab, or flip sync
+          online to pick it up from the group.
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="empty-state">No bands match. Try different filters.</div>
       ) : (
         grouped.map(([day, dayBands]) => (

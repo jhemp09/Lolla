@@ -7,7 +7,6 @@ import type {
   StageDistance,
   GroupScheduleEntry,
 } from "../types";
-import { SAMPLE_BANDS } from "./seed";
 import { getGroupCode, generateGroupCode, setGroupCode } from "../state/useGroup";
 
 export class LollaDB extends Dexie {
@@ -73,24 +72,6 @@ export class LollaDB extends Dexie {
 }
 
 export const db = new LollaDB();
-
-/**
- * Seeds the local DB with sample bands on first run only; never overwrites imported/edited
- * data. Uses bulkPut (idempotent upsert) rather than bulkAdd because React StrictMode/effect
- * re-invocation can call this twice concurrently in dev.
- */
-export async function ensureSeeded(): Promise<void> {
-  const count = await db.bands.count();
-  if (count === 0) {
-    await db.bands.bulkPut(SAMPLE_BANDS);
-  }
-}
-
-/** Wipes all bands and re-seeds with the built-in sample dataset. Used by "Reset sample data". */
-export async function reseedSampleData(): Promise<void> {
-  await db.bands.clear();
-  await db.bands.bulkPut(SAMPLE_BANDS);
-}
 
 /** Replaces all bands with an imported dataset (from CSV/XLSX import). Ratings/schedule keyed by bandId are preserved. */
 export async function importBands(bands: Band[]): Promise<void> {

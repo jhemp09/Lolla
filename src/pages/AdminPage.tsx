@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useGroupCode } from "../state/useGroup";
 import { notifyLocalChange } from "../lib/autoSync";
-import { reseedSampleData, importBands, importStageDistances } from "../db/db";
+import { importBands, importStageDistances } from "../db/db";
 import { importRatings } from "../state/useRatings";
 import { parseBandsCsv, parseStageDistancesCsv, parseRatingsCsv } from "../lib/csv";
 import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
@@ -78,16 +78,6 @@ export function AdminPage() {
         <div className="sync-row">
           <button className="primary-btn" onClick={() => fileInputRef.current?.click()}>
             Import CSV
-          </button>
-          <button
-            className="secondary-btn"
-            onClick={async () => {
-              if (!confirm("Reset bands to the built-in sample dataset? Your ratings/schedule stay.")) return;
-              await reseedSampleData();
-              notifyLocalChange();
-            }}
-          >
-            Reset to sample lineup
           </button>
         </div>
       </div>

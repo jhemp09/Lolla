@@ -7,7 +7,6 @@ import { useComputedGroupSchedule, adoptGroupSchedule } from "../state/useGroupS
 import { openBandDetail } from "../state/useSelectedBand";
 import { usePersistedState } from "../state/usePersistedState";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
-import { STAGE_LIST } from "../db/seed";
 
 export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
   const [groupCode] = useGroupCode();
@@ -19,10 +18,7 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
   const totalPicks = useMemo(() => days.reduce((sum, d) => sum + d.bandIds.length, 0), [days]);
 
-  const stages = useMemo(() => {
-    const fromData = Array.from(new Set(bands.map((b) => b.stage)));
-    return fromData.length ? fromData : STAGE_LIST;
-  }, [bands]);
+  const stages = useMemo(() => Array.from(new Set(bands.map((b) => b.stage))), [bands]);
 
   const highlights = useMemo(() => {
     const map = new Map<string, HighlightCategory>();
