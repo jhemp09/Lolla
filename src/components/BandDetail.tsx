@@ -213,6 +213,13 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
   const [editing, setEditing] = useState(false);
   const scheduled = useIsScheduled(groupCode, band.id, userName);
 
+  // The detail view is shown/hidden with display:none rather than a real route change,
+  // so the page keeps whatever scroll position the list/grid behind it was at — land on
+  // the top of the detail view instead of wherever that happened to be.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [band.id]);
+
   const stageOptions = useMemo(
     () => Array.from(new Set(allBands.map((b) => b.stage))).sort(),
     [allBands],
