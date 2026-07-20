@@ -51,20 +51,34 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
     () => new Set(groupDays.flatMap((d) => d.bandIds)),
     [groupDays],
   );
+  // What this member has actually chosen to add themselves — as opposed to the group
+  // schedule bands displayed alongside them, which are computed, not a real entry of theirs.
+  const ownBandIds = useMemo(() => new Set(scheduleEntries.map((e) => e.bandId)), [scheduleEntries]);
 
   const stages = useMemo(
     () => sortByStageOrder(Array.from(new Set(bands.map((b) => b.stage)))),
     [bands],
   );
 
-  const displayedBands = useMemo(
-    () =>
-      scheduleEntries
-        .map((e) => bandsById.get(e.bandId))
-        .filter((b): b is Band => !!b)
-        .sort((a, b) => a.day - b.day || a.startMinutes - b.startMinutes),
-    [scheduleEntries, bandsById],
-  );
+  // The individual view is always group schedule (base layer) + this member's own picks
+  // layered on top — no separate "adopt" step needed to see the group's plan here.
+  const displayedBands = useMemo(() => {
+    const ids = new Set<string>([...groupBandIds, ...ownBandIds]);
+    return Array.from(ids)
+      .map((id) => bandsById.get(id))
+      .filter((b): b is Band => !!b)
+      .sort((a, b) => a.day - b.day || a.startMinutes - b.startMinutes);
+  }, [groupBandIds, ownBandIds, bandsById]);
+
+  const displayedByDay = useMemo(() => {
+    const map = new Map<Day, Band[]>();
+    for (const b of displayedBands) {
+      const list = map.get(b.day) ?? [];
+      list.push(b);
+      map.set(b.day, list);
+    }
+    return Array.from(map.entries());
+  }, [displayedBands]);
 
   const conflicts = useMemo(() => findConflicts(displayedBands), [displayedBands]);
 
@@ -139,39 +153,44 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
       ) : displayedBands.length === 0 ? (
         <div className="empty-state">
           {isSelf
-            ? "Your schedule is empty. Add bands from the Bands tab."
+            ? "Nothing yet — rate bands as a group, or add your own from the Bands tab."
             : `${effectiveMember} hasn't added anything yet.`}
         </div>
       ) : (
-        displayedBands.map((b) => (
-          <div key={b.id} className="band-card clickable" onClick={() => openBandDetail(b.id)}>
-            <div className="band-card-top">
-              <div>
-                <div className="band-name">
-                  {b.name} {conflicts.has(b.id) && <span style={{ color: "var(--danger)" }}>⚠</span>}
+        displayedByDay.map(([d, dayBands]) => (
+          <div key={d} style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d]}</h2>
+            {dayBands.map((b) => (
+              <div key={b.id} className="band-card clickable" onClick={() => openBandDetail(b.id)}>
+                <div className="band-card-top">
+                  <div>
+                    <div className="band-name">
+                      {b.name} {conflicts.has(b.id) && <span style={{ color: "var(--danger)" }}>⚠</span>}
+                    </div>
+                    <div className="band-meta">
+                      {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
+                    </div>
+                  </div>
+                  <span className="badge">{b.stage}</span>
                 </div>
-                <div className="band-meta">
-                  {DAY_LABELS[b.day]} · {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
+                <div className="band-card-actions">
+                  <span className={`diff-badge ${highlights.get(b.id)}`}>
+                    {highlights.get(b.id) === "group" ? "Group schedule" : "Personal pick"}
+                  </span>
+                  {isSelf && ownBandIds.has(b.id) && (
+                    <button
+                      className="schedule-btn added"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeFromSchedule(groupCode, b.id, myUserName);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
-              <span className="badge">{b.stage}</span>
-            </div>
-            <div className="band-card-actions">
-              <span className={`diff-badge ${highlights.get(b.id)}`}>
-                {highlights.get(b.id) === "group" ? "Group schedule" : "Personal pick"}
-              </span>
-              {isSelf && (
-                <button
-                  className="schedule-btn added"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeFromSchedule(groupCode, b.id, myUserName);
-                  }}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
+            ))}
           </div>
         ))
       )}

@@ -29,6 +29,18 @@ export function useComputedGroupSchedule(groupCode: string, bands: Band[]): Opti
   }, [ratings, distances, bands]);
 }
 
+/** Non-hook version of the same computation, for one-off checks outside a component (e.g. deciding whether to auto-add a 5-star band). */
+export async function computeGroupSchedule(groupCode: string): Promise<OptimizedDay[]> {
+  const [ratings, distances, bands] = await Promise.all([
+    db.ratings.where("groupCode").equals(groupCode).toArray(),
+    db.stageDistances.toArray(),
+    db.bands.toArray(),
+  ]);
+  const weights = aggregateRatingWeights(ratings.map((r) => ({ bandId: r.bandId, rating: r.preRating })));
+  const walkMinutes = buildDistanceLookup(distances);
+  return optimizeGroupSchedule(bands, weights, walkMinutes);
+}
+
 /** Copies the group schedule's picks into one person's own schedule. Additive only — never removes anything they already picked themselves. */
 export async function adoptGroupSchedule(
   groupCode: string,

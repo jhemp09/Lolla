@@ -44,15 +44,21 @@ at all.
   arriving on the next sync. Runs fully offline; it just won't reflect
   anyone else's ratings until you're
   back online.
-  "Individual Schedule" is your own editable schedule (add/remove from a band's
-  detail screen), with a member switcher to view — read-only — anyone else in
-  your group's individual schedule too. Both halves, and both other members'
-  schedules, support List and Grid views. Individual schedules color-code each
-  pick: gold if it matches the group schedule, blue if it's a personal
-  deviation the group didn't choose. "Adopt into my schedule" on the Group
-  Schedule copies its picks into your individual schedule as a one-time,
-  additive action — it never overwrites your own picks, and regenerating the
-  group schedule later doesn't retroactively change what you already adopted.
+  "Individual Schedule" always shows the group schedule as a base layer (gold)
+  plus whatever you've personally added on top (blue) — no separate step
+  needed to see the group's plan alongside your own. Rating a band "I cannot
+  miss this band" (5) auto-adds it to your personal schedule the moment you
+  rate it, unless the group schedule already has it covered — you shouldn't
+  have to remember to also go tap "Add to schedule" for your own must-sees.
+  You can remove anything you've personally added (gold group picks aren't
+  yours to remove — that's what the Group Schedule tab is for); a member
+  switcher lets you view — read-only — anyone else in your group's individual
+  schedule the same way. Both halves, and both other members' schedules,
+  support List and Grid views. "Adopt into my schedule" on the Group Schedule
+  copies its current picks into your individual schedule as real entries of
+  your own, as a one-time, additive action — useful if you want today's group
+  picks to stick even if the group schedule later shifts as more ratings come
+  in; it never overwrites your own picks either way.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup sync with
   the group automatically in the background (debounced push on every local

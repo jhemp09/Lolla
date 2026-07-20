@@ -3,6 +3,8 @@ import { db } from "../db/db";
 import { notifyLocalChange } from "../lib/autoSync";
 import type { Rating } from "../types";
 import type { RatingImportRow } from "../lib/csv";
+import { addToSchedule } from "./useSchedule";
+import { computeGroupSchedule } from "./useGroupSchedule";
 
 export interface BandRating {
   preRating: number;
@@ -75,8 +77,37 @@ async function patchRating(
   notifyLocalChange();
 }
 
-export function setPreRating(groupCode: string, bandId: string, userName: string, preRating: number) {
-  return patchRating(groupCode, bandId, userName, { preRating });
+export async function setPreRating(groupCode: string, bandId: string, userName: string, preRating: number) {
+  await patchRating(groupCode, bandId, userName, { preRating });
+  if (preRating === 5) await autoAddMustSee(groupCode, bandId, userName);
+}
+
+/**
+ * Rating something "I cannot miss this band" is a strong enough signal to seed it straight
+ * into your personal schedule automatically, rather than making you remember to also go tap
+ * "Add to schedule." Skipped if you've already got an opinion on this band's schedule entry
+ * one way or the other (added it yourself, or explicitly removed it — either way that's your
+ * call now, not ours to override), or if the group schedule already includes it, since the
+ * individual view already shows every group pick as a base layer — adding it again would
+ * just be a redundant "deviation" pick for a band that's already covered.
+ */
+async function autoAddMustSee(groupCode: string, bandId: string, userName: string) {
+  const existing = await db.schedule
+    .where("[groupCode+bandId+userName]")
+    .equals([groupCode, bandId, userName])
+    .first();
+  if (existing) return;
+
+  const band = await db.bands.get(bandId);
+  if (!band) return;
+
+  const groupDays = await computeGroupSchedule(groupCode);
+  const alreadyInGroupSchedule = groupDays.some(
+    (d) => d.day === band.day && d.bandIds.includes(bandId),
+  );
+  if (alreadyInGroupSchedule) return;
+
+  await addToSchedule(groupCode, bandId, userName);
 }
 
 export function setPreNotes(groupCode: string, bandId: string, userName: string, preNotes: string) {
