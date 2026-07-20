@@ -160,24 +160,6 @@
   margin-top: 10px;
 }
 
-.stars {
-  display: inline-flex;
-  gap: 2px;
-}
-
-.star-btn {
-  border: none;
-  background: none;
-  font-size: 22px;
-  line-height: 1;
-  padding: 2px;
-  color: var(--border);
-}
-
-.star-btn.filled {
-  color: var(--star);
-}
-
 .schedule-btn {
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
@@ -216,15 +198,26 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 4px 8px;
+  width: 100%;
+  padding: 8px;
+  margin: 2px 0;
   border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
   font-size: 13px;
+  font-family: inherit;
+  text-align: left;
   color: var(--text);
+  cursor: pointer;
+}
+
+.rating-legend-row:hover {
+  background: var(--bg);
 }
 
 .rating-legend-row.active {
   background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
+  border-color: var(--accent-border);
   color: var(--text-h);
   font-weight: 600;
 }

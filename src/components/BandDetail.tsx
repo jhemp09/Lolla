@@ -3,7 +3,6 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db, updateBand } from "../db/db";
 import type { Band, Rating } from "../types";
 import { formatMinutes } from "../types";
-import { RatingStars } from "./RatingStars";
 import { setPreRating, setPreNotes, setDuringRating, setDuringNotes } from "../state/useRatings";
 import { useIsScheduled, addToSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useUserName } from "../state/useUser";
@@ -178,14 +177,17 @@ function RatingSection({
       <h2 style={{ fontSize: 16 }}>{title}</h2>
       <p className="status-text" style={{ marginTop: 4 }}>{description}</p>
       <div style={{ margin: "10px 0" }}>
-        <RatingStars rating={rating} onChange={onRatingChange} size={28} />
-      </div>
-      <div>
         {([5, 4, 3, 2, 1] as const).map((n) => (
-          <div key={n} className={`rating-legend-row${n === rating ? " active" : ""}`}>
+          <button
+            key={n}
+            type="button"
+            className={`rating-legend-row${n === rating ? " active" : ""}`}
+            // Clicking the already-selected rating clears it, same as the old star toggle.
+            onClick={() => onRatingChange(n === rating ? 0 : n)}
+          >
             <span className="rating-legend-num">{n}</span>
             <span>{labels[n]}</span>
-          </div>
+          </button>
         ))}
       </div>
       <label className="field-label" htmlFor={`notes-${title.replace(/\s+/g, "-").toLowerCase()}`}>
@@ -279,13 +281,8 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
             <span className="badge">{band.stage}</span>
           </div>
           <div className="band-meta" style={{ marginTop: 6 }}>
-            {band.genre}
+            {band.description ? `${band.genre} - ${band.description}` : band.genre}
           </div>
-          {band.description && (
-            <div className="band-meta" style={{ marginTop: 6 }}>
-              {band.description}
-            </div>
-          )}
           <div className="band-card-actions">
             {isAdmin ? (
               <button className="secondary-btn" onClick={() => setEditing(true)}>
@@ -295,7 +292,7 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
               <span />
             )}
             <button className={`schedule-btn${scheduled ? " added" : ""}`} onClick={toggleSchedule}>
-              {scheduled ? "✓ In schedule" : "+ Add to schedule"}
+              {scheduled ? "✓ In schedule" : "+ Add to my individual schedule"}
             </button>
           </div>
         </div>
