@@ -7,12 +7,10 @@ import { getGroupCode } from "../state/useGroup";
 export type SyncStatus = "offline" | "idle" | "syncing" | "error" | "unconfigured";
 
 const PUSH_DEBOUNCE_MS = 1500;
-const PULL_INTERVAL_MS = 45000;
 
 let status: SyncStatus = "offline";
 let errorMessage = "";
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
-let pullTimer: ReturnType<typeof setInterval> | null = null;
 const listeners = new Set<() => void>();
 
 function setStatus(next: SyncStatus, message = "") {
@@ -57,19 +55,14 @@ async function runSync() {
   }
 }
 
-/** Call once when the user flips online: syncs immediately, then keeps pulling periodically. */
+/** Call once when the user flips online: syncs immediately. No periodic polling —
+ * further syncs happen on local edits (debounced) or navigation (syncNow). */
 export function startAutoSync() {
-  if (pullTimer) return; // already running
   runSync();
-  pullTimer = setInterval(runSync, PULL_INTERVAL_MS);
 }
 
 /** Call when the user flips offline (or on unmount): stops all network activity. */
 export function stopAutoSync() {
-  if (pullTimer) {
-    clearInterval(pullTimer);
-    pullTimer = null;
-  }
   if (pushTimer) {
     clearTimeout(pushTimer);
     pushTimer = null;

@@ -7,7 +7,7 @@ import { useSession, useIsAdmin } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
 import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
-import { startAutoSync, stopAutoSync } from "./lib/autoSync";
+import { startAutoSync, stopAutoSync, syncNow } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
 import { BandDetail } from "./components/BandDetail";
 import { BandsPage } from "./pages/BandsPage";
@@ -24,6 +24,13 @@ function App() {
   const [online] = useOnlineMode();
   const selectedBandId = useSelectedBandId();
   const selectedBand = useBand(selectedBandId ?? undefined);
+
+  // No periodic background polling — instead, sync whenever the user navigates
+  // between tabs, so data is fresh the moment they land on a page.
+  function goToTab(next: typeof tab) {
+    setTab(next);
+    syncNow();
+  }
 
   useEffect(() => {
     if (online) {
@@ -80,21 +87,21 @@ function App() {
       <nav className="bottom-nav">
         <button
           className={`bottom-nav-btn${tab === "bands" ? " active" : ""}`}
-          onClick={() => setTab("bands")}
+          onClick={() => goToTab("bands")}
         >
           <span className="bottom-nav-icon">🎵</span>
           Bands
         </button>
         <button
           className={`bottom-nav-btn${tab === "schedule" ? " active" : ""}`}
-          onClick={() => setTab("schedule")}
+          onClick={() => goToTab("schedule")}
         >
           <span className="bottom-nav-icon">🗓️</span>
           Schedule
         </button>
         <button
           className={`bottom-nav-btn${tab === "sync" ? " active" : ""}`}
-          onClick={() => setTab("sync")}
+          onClick={() => goToTab("sync")}
         >
           <span className="bottom-nav-icon">🔄</span>
           Sync
@@ -102,7 +109,7 @@ function App() {
         {isAdmin && (
           <button
             className={`bottom-nav-btn${tab === "admin" ? " active" : ""}`}
-            onClick={() => setTab("admin")}
+            onClick={() => goToTab("admin")}
           >
             <span className="bottom-nav-icon">🛠️</span>
             Admin

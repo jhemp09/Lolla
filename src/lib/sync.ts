@@ -187,9 +187,12 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
     // Bands are a global, admin-managed replace-the-whole-table dataset (like
     // stage distances below), not additive rows — clear first or a device's
     // original sample-seeded bands (different IDs, never overwritten by an
-    // upsert) sit alongside the real ones forever.
-    await db.bands.clear();
-    await db.bands.bulkPut(bands);
+    // upsert) sit alongside the real ones forever. Clear+bulkPut run inside one
+    // transaction so useLiveQuery observers never see the momentarily-empty table.
+    await db.transaction("rw", db.bands, async () => {
+      await db.bands.clear();
+      await db.bands.bulkPut(bands);
+    });
   }
 
   if (remoteDistances.length) {
@@ -198,8 +201,10 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
       stageB: d.stage_b,
       minutes: d.minutes,
     }));
-    await db.stageDistances.clear();
-    await db.stageDistances.bulkPut(distances);
+    await db.transaction("rw", db.stageDistances, async () => {
+      await db.stageDistances.clear();
+      await db.stageDistances.bulkPut(distances);
+    });
   }
 
   await db.transaction("rw", db.ratings, async () => {
