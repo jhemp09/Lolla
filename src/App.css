@@ -390,7 +390,8 @@
   border: 1px solid var(--accent-border);
   border-radius: 4px;
   padding: 1px 3px;
-  font-size: 9.5px;
+  font-size: 8.5px;
+  font-weight: 700;
   line-height: 1.2;
   color: var(--text-h);
   height: 100%;

@@ -44,7 +44,7 @@ export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
       <div
         className="itinerary-grid"
         style={{
-          gridTemplateColumns: `28px repeat(${stages.length}, minmax(46px, 1fr))`,
+          gridTemplateColumns: `28px repeat(${stages.length}, minmax(52px, 1fr))`,
           gridTemplateRows: `auto repeat(${totalSlots}, ${SLOT_HEIGHT}px)`,
         }}
       >
