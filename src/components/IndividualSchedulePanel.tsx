@@ -11,23 +11,6 @@ import { openBandDetail } from "../state/useSelectedBand";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { sortByStageOrder } from "../lib/stageOrder";
 
-function findConflicts(bands: Band[]): Set<string> {
-  const conflicts = new Set<string>();
-  for (let i = 0; i < bands.length; i++) {
-    for (let j = i + 1; j < bands.length; j++) {
-      const a = bands[i];
-      const b = bands[j];
-      if (a.day !== b.day) continue;
-      const overlap = a.startMinutes < b.endMinutes && b.startMinutes < a.endMinutes;
-      if (overlap) {
-        conflicts.add(a.id);
-        conflicts.add(b.id);
-      }
-    }
-  }
-  return conflicts;
-}
-
 export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
   const [myUserName] = useUserName();
   const [groupCode] = useGroupCode();
@@ -80,8 +63,6 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
     return Array.from(map.entries());
   }, [displayedBands]);
 
-  const conflicts = useMemo(() => findConflicts(displayedBands), [displayedBands]);
-
   const highlights = useMemo(() => {
     const map = new Map<string, HighlightCategory>();
     for (const b of displayedBands) {
@@ -129,12 +110,6 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
         </button>
       </div>
 
-      {conflicts.size > 0 && (
-        <div className="conflict-banner">
-          ⚠ {isSelf ? "You have" : `${effectiveMember} has`} overlapping sets — check the times below.
-        </div>
-      )}
-
       {view === "grid" ? (
         <>
           <div className="day-tabs" style={{ padding: "0 0 10px" }}>
@@ -164,9 +139,7 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
               <div key={b.id} className="band-card clickable" onClick={() => openBandDetail(b.id)}>
                 <div className="band-card-top">
                   <div>
-                    <div className="band-name">
-                      {b.name} {conflicts.has(b.id) && <span style={{ color: "var(--danger)" }}>⚠</span>}
-                    </div>
+                    <div className="band-name">{b.name}</div>
                     <div className="band-meta">
                       {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
                     </div>

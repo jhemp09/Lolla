@@ -4,7 +4,6 @@ import { db } from "../db/db";
 import type { Band } from "../types";
 import { optimizeGroupSchedule, aggregateRatingWeights, type OptimizedDay } from "../lib/optimizer";
 import { buildDistanceLookup } from "../lib/stageDistances";
-import { addToSchedule } from "./useSchedule";
 
 /**
  * The group schedule purely as a function of the group's current ratings and the stage
@@ -39,17 +38,4 @@ export async function computeGroupSchedule(groupCode: string): Promise<Optimized
   const weights = aggregateRatingWeights(ratings.map((r) => ({ bandId: r.bandId, rating: r.preRating })));
   const walkMinutes = buildDistanceLookup(distances);
   return optimizeGroupSchedule(bands, weights, walkMinutes);
-}
-
-/** Copies the group schedule's picks into one person's own schedule. Additive only — never removes anything they already picked themselves. */
-export async function adoptGroupSchedule(
-  groupCode: string,
-  userName: string,
-  days: OptimizedDay[],
-): Promise<void> {
-  for (const day of days) {
-    for (const bandId of day.bandIds) {
-      await addToSchedule(groupCode, bandId, userName);
-    }
-  }
 }
