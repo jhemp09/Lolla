@@ -64,7 +64,12 @@
 -- a policy. "ratings" now also requires either owning the row (user_name
 -- matches your own account's first_name) or being admin, so a non-admin can
 -- still rate bands themselves but can't bulk-write ratings under someone
--- else's name via the ratings CSV import.
+-- else's name via the ratings CSV import. Both admin-gated tables also grant
+-- delete (admin only) — the app fully replaces them on every admin push
+-- (delete-then-insert) rather than upserting, so a device's local table can
+-- never end up permanently merged with stale rows still sitting in Supabase
+-- (e.g. the built-in sample lineup a device pushed up before ever importing
+-- a real one).
 
 create schema if not exists lolla;
 
@@ -117,18 +122,22 @@ drop policy if exists "authenticated write bands" on lolla.bands;
 drop policy if exists "admin write bands" on lolla.bands;
 drop policy if exists "authenticated update bands" on lolla.bands;
 drop policy if exists "admin update bands" on lolla.bands;
+drop policy if exists "admin delete bands" on lolla.bands;
 create policy "authenticated read bands" on lolla.bands for select using (auth.role() = 'authenticated');
 create policy "admin write bands" on lolla.bands for insert with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 create policy "admin update bands" on lolla.bands for update using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "admin delete bands" on lolla.bands for delete using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 drop policy if exists "authenticated read stage_distances" on lolla.stage_distances;
 drop policy if exists "authenticated write stage_distances" on lolla.stage_distances;
 drop policy if exists "admin write stage_distances" on lolla.stage_distances;
 drop policy if exists "authenticated update stage_distances" on lolla.stage_distances;
 drop policy if exists "admin update stage_distances" on lolla.stage_distances;
+drop policy if exists "admin delete stage_distances" on lolla.stage_distances;
 create policy "authenticated read stage_distances" on lolla.stage_distances for select using (auth.role() = 'authenticated');
 create policy "admin write stage_distances" on lolla.stage_distances for insert with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 create policy "admin update stage_distances" on lolla.stage_distances for update using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
+create policy "admin delete stage_distances" on lolla.stage_distances for delete using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 drop policy if exists "authenticated read ratings" on lolla.ratings;
 drop policy if exists "authenticated write ratings" on lolla.ratings;

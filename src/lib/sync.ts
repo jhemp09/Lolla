@@ -47,9 +47,15 @@ interface RemoteStageDistance {
 }
 
 /**
- * Pushes everything on this device up to the shared Supabase project. Bands and stage
- * distances are global (shared across every group in this project) and upserted. Ratings
- * and schedule are scoped to the current group.
+ * Pushes everything on this device up to the shared Supabase project. Ratings and
+ * schedule are scoped to the current group and pushed for every account. Bands and
+ * stage distances are global (shared across every group in this project) and
+ * admin-managed — RLS only allows an admin account to write them, so a non-admin
+ * skips them entirely rather than triggering a doomed write. When an admin does push
+ * them, it's a full replace (delete anything remote that isn't in the current local
+ * set, not just an upsert) so the shared table can't accumulate stale rows a local
+ * device no longer has — e.g. sample-seeded bands that got pushed up before a local
+ * table was properly replaced by a real import.
  *
  * Note: the group schedule itself is never pushed/pulled — it's computed locally on
  * every device from ratings + stage distances (see useComputedGroupSchedule), both of
@@ -58,28 +64,15 @@ interface RemoteStageDistance {
 export async function pushToRemote(groupCode: string): Promise<void> {
   const sb = client();
 
-  const [bands, distances, ratings, schedule] = await Promise.all([
+  const [bands, distances, ratings, schedule, { data: sessionData }] = await Promise.all([
     db.bands.toArray(),
     db.stageDistances.toArray(),
     db.ratings.where("groupCode").equals(groupCode).toArray(),
     db.schedule.where("groupCode").equals(groupCode).toArray(),
+    sb.auth.getSession(),
   ]);
+  const isAdmin = sessionData.session?.user.app_metadata?.role === "admin";
 
-  const remoteBands: RemoteBand[] = bands.map((b) => ({
-    id: b.id,
-    name: b.name,
-    stage: b.stage,
-    day: b.day,
-    start_minutes: b.startMinutes,
-    end_minutes: b.endMinutes,
-    genre: b.genre,
-    description: b.description,
-  }));
-  const remoteDistances: RemoteStageDistance[] = distances.map((d) => ({
-    stage_a: d.stageA,
-    stage_b: d.stageB,
-    minutes: d.minutes,
-  }));
   const remoteRatings: RemoteRating[] = ratings.map((r) => ({
     group_code: r.groupCode,
     band_id: r.bandId,
@@ -98,16 +91,8 @@ export async function pushToRemote(groupCode: string): Promise<void> {
     removed: s.removed,
   }));
 
-  if (remoteBands.length) {
-    const { error } = await sb.from("bands").upsert(remoteBands, { onConflict: "id" });
-    if (error) throw error;
-  }
-  if (remoteDistances.length) {
-    const { error } = await sb
-      .from("stage_distances")
-      .upsert(remoteDistances, { onConflict: "stage_a,stage_b" });
-    if (error) throw error;
-  }
+  // Own data first — never let an admin-only table's RLS rejection (or any other
+  // failure below) stop a person's own ratings/schedule from reaching the server.
   if (remoteRatings.length) {
     const { error } = await sb
       .from("ratings")
@@ -119,6 +104,43 @@ export async function pushToRemote(groupCode: string): Promise<void> {
       .from("schedule")
       .upsert(remoteSchedule, { onConflict: "group_code,band_id,user_name" });
     if (error) throw error;
+  }
+
+  if (!isAdmin) return;
+
+  const remoteBands: RemoteBand[] = bands.map((b) => ({
+    id: b.id,
+    name: b.name,
+    stage: b.stage,
+    day: b.day,
+    start_minutes: b.startMinutes,
+    end_minutes: b.endMinutes,
+    genre: b.genre,
+    description: b.description,
+  }));
+  const remoteDistances: RemoteStageDistance[] = distances.map((d) => ({
+    stage_a: d.stageA,
+    stage_b: d.stageB,
+    minutes: d.minutes,
+  }));
+
+  if (remoteBands.length) {
+    // Full replace (delete-all-then-insert), not upsert — a routine upsert never
+    // removes rows a local device no longer has, which is exactly how sample-seeded
+    // bands ended up permanently stuck alongside a real imported lineup. Both tables
+    // are small (a festival lineup, a handful of stage pairs) and only meaningfully
+    // change when an admin imports new data, so the brief empty window this creates
+    // is cheap and harmless.
+    const { error: deleteError } = await sb.from("bands").delete().not("id", "is", null);
+    if (deleteError) throw deleteError;
+    const { error: insertError } = await sb.from("bands").insert(remoteBands);
+    if (insertError) throw insertError;
+  }
+  if (remoteDistances.length) {
+    const { error: deleteError } = await sb.from("stage_distances").delete().not("stage_a", "is", null);
+    if (deleteError) throw deleteError;
+    const { error: insertError } = await sb.from("stage_distances").insert(remoteDistances);
+    if (insertError) throw insertError;
   }
 }
 
