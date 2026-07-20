@@ -31,17 +31,18 @@ at all.
 - **The Schedule tab has two halves.** "Group Schedule" is computed, not
   editable — it picks the set of bands that maximizes total group rating from
   everyone's pre-festival ratings. Exact start/end times aren't a hard
-  requirement — arriving late or leaving early is fine — but you do need to
-  catch at least half of a set for it to count as attended, so two picks
-  chain only if there's a walk window that still leaves at least half of
-  each one watched. Walking distance only matters as a tie-break beyond
-  that — given two schedules with the same total rating, it picks whichever
-  crosses the park less. Plain algorithm (weighted interval scheduling,
-  generalized with a minimum-attendance window and a walk-distance
-  tie-break), not an LLM call, and there's no generate button — it's a live
-  view that recomputes instantly whenever a rating changes, whether that's
-  you rating a band or a teammate's rating arriving on the next sync. Runs
-  fully offline; it just won't reflect anyone else's ratings until you're
+  requirement — arriving up to 15 minutes late or leaving up to 15 minutes
+  early is fine (a flat cap, not a fraction of the set's length, so a
+  2-hour headliner set doesn't get an hour of slack) — so two picks chain if
+  there's a walk window that fits within that. Walking distance only
+  matters as a tie-break beyond that — given two schedules with the same
+  total rating, it picks whichever crosses the park less. Plain algorithm
+  (weighted interval scheduling, generalized with a minimum-attendance
+  window and a walk-distance tie-break), not an LLM call, and there's no
+  generate button — it's a live view that recomputes instantly whenever a
+  rating changes, whether that's you rating a band or a teammate's rating
+  arriving on the next sync. Runs fully offline; it just won't reflect
+  anyone else's ratings until you're
   back online.
   "Individual Schedule" is your own editable schedule (add/remove from a band's
   detail screen), with a member switcher to view — read-only — anyone else in
