@@ -30,13 +30,17 @@ at all.
   pre-festival rating once you've set one.
 - **The Schedule tab has two halves.** "Group Schedule" is computed, not
   editable — it picks the set of bands that maximizes total group rating from
-  everyone's pre-festival ratings, only chaining two picks back to back if
-  there's enough time to actually walk between their stages. Plain algorithm
-  (weighted interval scheduling with walk-time constraints), not an LLM call,
-  and there's no generate button — it's a live view that recomputes instantly
-  whenever a rating changes, whether that's you rating a band or a teammate's
-  rating arriving on the next sync. Runs fully offline; it just won't reflect
-  anyone else's ratings until you're back online.
+  everyone's pre-festival ratings. Timing never excludes a pick outright:
+  arriving late, leaving early, or catching only part of a set is assumed
+  fine, so two picks can always chain as long as there's *some* plausible
+  window to make the walk somewhere across their combined time span. Walking
+  distance only matters as a tie-break — given two schedules with the same
+  total rating, it picks whichever crosses the park less. Plain algorithm
+  (weighted interval scheduling, generalized with a walk-distance tie-break),
+  not an LLM call, and there's no generate button — it's a live view that
+  recomputes instantly whenever a rating changes, whether that's you rating a
+  band or a teammate's rating arriving on the next sync. Runs fully offline;
+  it just won't reflect anyone else's ratings until you're back online.
   "Individual Schedule" is your own editable schedule (add/remove from a band's
   detail screen), with a member switcher to view — read-only — anyone else in
   your group's individual schedule too. Both halves, and both other members'
@@ -162,8 +166,9 @@ so the rest of the group picks it up on their next pull.
 
 *Admin only* — Admin tab.
 
-The group schedule optimizer needs to know how long it takes to walk between
-stages, or it can't tell a feasible back-to-back pick from an impossible one.
+The group schedule optimizer uses this to break ties between otherwise
+equally-rated schedules — it doesn't gate which picks can chain together (see
+above), just which of several equally-good options crosses the park least.
 Until you provide real numbers it assumes a flat 12-minute walk between any
 two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
 (one row per pair, order doesn't matter) via the Admin tab.

@@ -45,9 +45,10 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
       <div className="sync-card">
         <p className="status-text">
           Updates automatically as ratings come in from you or your group — no need to
-          regenerate. Maximizes total group rating without scheduling back-to-back sets
-          you can't actually walk between. Not editable. Runs entirely on this device,
-          no network needed.
+          regenerate. Maximizes total group rating first — arriving late, leaving early,
+          or catching only part of a set is fine — then prefers whichever equally-rated
+          option means crossing the park less. Not editable. Runs entirely on this
+          device, no network needed.
         </p>
         <div className="sync-row">
           <p className="status-text" style={{ margin: 0 }}>

@@ -19,12 +19,19 @@ export function aggregateRatingWeights(
 }
 
 /**
- * Picks, for each day, the sequence of rated bands that maximizes total group rating
- * while only chaining two picks back to back if there's enough time between them to
- * actually walk from one stage to the other. This is weighted interval scheduling
- * generalized with a stage-transition cost: model each rated band as a node, add a
- * directed edge i -> j (i earlier) when j is walk-feasible after i, then find the
- * max-weight path through that DAG via O(n^2) DP. Runs fully offline.
+ * Picks, for each day, the sequence of rated bands that maximizes total group rating —
+ * arriving late, leaving early, or catching only part of a set is fine, so timing never
+ * excludes a pick outright. The only thing walking distance affects is which of several
+ * equally-rated schedules to prefer: given a tie in total rating, the one with less total
+ * walking wins. Modeled as weighted interval scheduling generalized with a stage-transition
+ * cost: each rated band is a node, with a directed edge i -> j (i earlier by start time)
+ * whenever there's *some* plausible window to walk from i's stage to j's — using i's start
+ * and j's end as the widest possible bound, not i's end and j's start, since you don't need
+ * to catch either one in full. Two DP values propagate together per node: the max rating
+ * reachable (primary), and the minimum total walking minutes to achieve that rating
+ * (secondary, tie-break only) — so the result is the highest-rated schedule for the day,
+ * and among schedules tied for highest-rated, the one that crosses the park least. O(n^2),
+ * runs fully offline.
  */
 export function optimizeGroupSchedule(
   bands: Band[],
@@ -50,16 +57,26 @@ function optimizeDay(
 
   const weight = candidates.map((b) => ratingWeights.get(b.id) ?? 0);
   const best = new Array<number>(n).fill(0);
+  const bestWalk = new Array<number>(n).fill(0);
   const prev = new Array<number>(n).fill(-1);
 
   for (let j = 0; j < n; j++) {
     best[j] = weight[j];
+    bestWalk[j] = 0;
     for (let i = 0; i < j; i++) {
-      const gap = candidates[j].startMinutes - candidates[i].endMinutes;
-      if (gap < 0) continue; // still overlaps i, never attendable back to back
+      // Widest plausible window: from the moment i starts to the moment j ends. You don't
+      // need all of either — just enough combined time, somewhere in there, to make the walk.
+      const available = candidates[j].endMinutes - candidates[i].startMinutes;
       const needed = walkMinutes(candidates[i].stage, candidates[j].stage);
-      if (gap >= needed && best[i] + weight[j] > best[j]) {
-        best[j] = best[i] + weight[j];
+      if (available < needed) continue; // even sacrificing all of both, the walk doesn't fit
+
+      const candidateScore = best[i] + weight[j];
+      const candidateWalk = bestWalk[i] + needed;
+      const better =
+        candidateScore > best[j] || (candidateScore === best[j] && candidateWalk < bestWalk[j]);
+      if (better) {
+        best[j] = candidateScore;
+        bestWalk[j] = candidateWalk;
         prev[j] = i;
       }
     }
@@ -67,7 +84,8 @@ function optimizeDay(
 
   let bestEnd = 0;
   for (let j = 1; j < n; j++) {
-    if (best[j] > best[bestEnd]) bestEnd = j;
+    const better = best[j] > best[bestEnd] || (best[j] === best[bestEnd] && bestWalk[j] < bestWalk[bestEnd]);
+    if (better) bestEnd = j;
   }
 
   const chain: number[] = [];
