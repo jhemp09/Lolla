@@ -281,8 +281,13 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
             <span className="badge">{band.stage}</span>
           </div>
           <div className="band-meta" style={{ marginTop: 6 }}>
-            {band.description ? `${band.genre} - ${band.description}` : band.genre}
+            {band.genre}
           </div>
+          {band.description && (
+            <div className="band-meta" style={{ marginTop: 6 }}>
+              {band.description}
+            </div>
+          )}
           <div className="band-card-actions">
             {isAdmin ? (
               <button className="secondary-btn" onClick={() => setEditing(true)}>
