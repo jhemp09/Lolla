@@ -68,7 +68,10 @@ function App() {
     <>
       <header className="app-header">
         <div className="app-header-row">
-          <span className="app-title">🎪 Lolla Planner</span>
+          <span className="app-title">
+            <img src="/lolla-icon.png" alt="" className="lolla-logo" />
+            Lolla Planner
+          </span>
           <span className="user-chip">{userName}</span>
         </div>
       </header>
