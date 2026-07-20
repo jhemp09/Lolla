@@ -3,13 +3,14 @@ import type { Band, Day } from "../types";
 import { DAY_LABELS, formatMinutes } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useComputedGroupSchedule } from "../state/useGroupSchedule";
-import { syncMustSeeSchedule } from "../state/useRatings";
+import { syncMustSeeSchedule, useAvoidBandIds } from "../state/useRatings";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
 import { useGroupMembers } from "../state/useGroupMembers";
 import { usePersistedState } from "../state/usePersistedState";
 import { openBandDetail } from "../state/useSelectedBand";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
+import { AvoidIcon } from "./AvoidIcon";
 import { sortByStageOrder } from "../lib/stageOrder";
 
 export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
@@ -37,6 +38,9 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
 
   const scheduleEntries = useUserSchedule(groupCode, effectiveMember);
   const groupDays = useComputedGroupSchedule(groupCode, bands);
+  // Whatever this member rated 1 ("actively want to avoid") — flagged wherever it shows up
+  // in their schedule, since a group pick can still be a band they can't stand.
+  const avoidBandIds = useAvoidBandIds(groupCode, effectiveMember);
 
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
   const groupBandIds = useMemo(
@@ -107,9 +111,13 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
         </div>
       </div>
 
-      <p className="status-text" style={{ margin: "8px 0" }}>
-        <span className="diff-badge group">Group schedule</span>{" "}
+      <p className="status-text" style={{ margin: "8px 0", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span className="diff-badge group">Group schedule</span>
         <span className="diff-badge deviation">Personal pick</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <AvoidIcon style={{ width: 12, height: 12, color: "var(--danger)" }} />
+          Rated 1 — avoid
+        </span>
       </p>
 
       <div className="tabs" style={{ marginBottom: 10 }}>
@@ -140,7 +148,13 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
               </button>
             ))}
           </div>
-          <ItineraryGrid bands={bands} day={day} stages={stages} highlights={highlights} />
+          <ItineraryGrid
+            bands={bands}
+            day={day}
+            stages={stages}
+            highlights={highlights}
+            avoidBandIds={avoidBandIds}
+          />
         </>
       ) : displayedBands.length === 0 ? (
         <div className="empty-state">
@@ -153,7 +167,13 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
           <div key={d} style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d]}</h2>
             {dayBands.map((b) => (
-              <div key={b.id} className="band-card clickable" onClick={() => openBandDetail(b.id)}>
+              <div
+                key={b.id}
+                className="band-card clickable"
+                style={{ position: "relative" }}
+                onClick={() => openBandDetail(b.id)}
+              >
+                {avoidBandIds.has(b.id) && <AvoidIcon className="band-card-avoid" />}
                 <div className="band-card-top">
                   <div>
                     <div className="band-name">{b.name}</div>
