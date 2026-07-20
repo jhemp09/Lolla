@@ -2,10 +2,16 @@ import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useAllBands } from "../state/useBands";
+import { useUserPreRatings } from "../state/useRatings";
+import { useUserName } from "../state/useUser";
+import { useGroupCode } from "../state/useGroup";
 import { BandCard } from "../components/BandCard";
 import { FilterChipRow } from "../components/FilterChipRow";
 
 const ALL_DAYS: Day[] = [1, 2, 3, 4];
+// 0 doubles as "Unrated" here, matching the convention preRating already uses everywhere else.
+const RATING_OPTIONS = [0, 1, 2, 3, 4, 5];
+const ratingOptionLabel = (r: number) => (r === 0 ? "Unrated" : String(r));
 
 function toggled<T>(set: Set<T>, value: T): Set<T> {
   const next = new Set(set);
@@ -16,9 +22,13 @@ function toggled<T>(set: Set<T>, value: T): Set<T> {
 
 export function BandsPage() {
   const bands = useAllBands();
+  const [userName] = useUserName();
+  const [groupCode] = useGroupCode();
+  const userRatings = useUserPreRatings(groupCode, userName);
   const [days, setDays] = useState<Set<Day>>(new Set());
   const [stages, setStages] = useState<Set<string>>(new Set());
   const [genres, setGenres] = useState<Set<string>>(new Set());
+  const [ratings, setRatings] = useState<Set<number>>(new Set());
   const [query, setQuery] = useState("");
 
   const stageOptions = useMemo(
@@ -36,9 +46,10 @@ export function BandsPage() {
       .filter((b) => days.size === 0 || days.has(b.day))
       .filter((b) => stages.size === 0 || stages.has(b.stage))
       .filter((b) => genres.size === 0 || genres.has(b.genre))
+      .filter((b) => ratings.size === 0 || ratings.has(userRatings.get(b.id) ?? 0))
       .filter((b) => b.name.toLowerCase().includes(query.trim().toLowerCase()))
       .sort((a, b) => a.day - b.day || a.startMinutes - b.startMinutes);
-  }, [bands, days, stages, genres, query]);
+  }, [bands, days, stages, genres, ratings, userRatings, query]);
 
   const grouped = useMemo(() => {
     const map = new Map<Day, Band[]>();
@@ -50,7 +61,7 @@ export function BandsPage() {
     return Array.from(map.entries());
   }, [filtered]);
 
-  const hasActiveFilters = days.size > 0 || stages.size > 0 || genres.size > 0;
+  const hasActiveFilters = days.size > 0 || stages.size > 0 || genres.size > 0 || ratings.size > 0;
 
   return (
     <div className="main">
@@ -80,6 +91,13 @@ export function BandsPage() {
         selected={genres}
         onToggle={(g) => setGenres((prev) => toggled(prev, g))}
       />
+      <FilterChipRow
+        label="Your rating"
+        options={RATING_OPTIONS}
+        optionLabel={ratingOptionLabel}
+        selected={ratings}
+        onToggle={(r) => setRatings((prev) => toggled(prev, r))}
+      />
 
       {hasActiveFilters && (
         <button
@@ -89,6 +107,7 @@ export function BandsPage() {
             setDays(new Set());
             setStages(new Set());
             setGenres(new Set());
+            setRatings(new Set());
           }}
         >
           Clear filters
