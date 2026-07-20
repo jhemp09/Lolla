@@ -9,7 +9,6 @@ import { useGroupMembers } from "../state/useGroupMembers";
 import { usePersistedState } from "../state/usePersistedState";
 import { openBandDetail } from "../state/useSelectedBand";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
-import { STAGE_LIST } from "../db/seed";
 
 function findConflicts(bands: Band[]): Set<string> {
   const conflicts = new Set<string>();
@@ -52,10 +51,7 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
     [groupDays],
   );
 
-  const stages = useMemo(() => {
-    const fromData = Array.from(new Set(bands.map((b) => b.stage)));
-    return fromData.length ? fromData : STAGE_LIST;
-  }, [bands]);
+  const stages = useMemo(() => Array.from(new Set(bands.map((b) => b.stage))), [bands]);
 
   const displayedBands = useMemo(
     () =>

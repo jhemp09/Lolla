@@ -149,12 +149,14 @@ To revoke admin from an account, run the same update with `'{"role": null}'`
 *Admin only* — lives in the Admin tab, which only shows up in the bottom nav
 for the admin account.
 
-The app ships with a placeholder sample lineup so it's usable out of the box.
-To load your real one: export your spreadsheet as CSV with columns
-`name, stage, day, start, end, genre, description` (day is 1-4, start/end are
-`HH:MM` 24h or `H:MM AM/PM`), then use **Import CSV** on the Admin tab. If sync
-is online, the import pushes automatically so the rest of the group picks it
-up on their next pull.
+The app ships with no lineup at all — Bands/Schedule show an empty state until
+the admin imports one, so there's never any placeholder data that could get
+mistaken for (or synced alongside) the real thing. To load it: export your
+spreadsheet as CSV with columns `name, stage, day, start, end, genre,
+description` (day is 1-4, start/end are `HH:MM` 24h or `H:MM AM/PM`), then use
+**Import CSV** on the Admin tab. If sync is online, the import pushes
+automatically (as a full replace, not merged with whatever was there before)
+so the rest of the group picks it up on their next pull.
 
 ## Importing real stage-to-stage walking times
 

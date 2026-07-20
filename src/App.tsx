@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import "./App.css";
 import { useUserName } from "./state/useUser";
 import { useGroupCode } from "./state/useGroup";
@@ -7,7 +7,6 @@ import { useSession, useIsAdmin } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
 import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
-import { ensureSeeded } from "./db/db";
 import { startAutoSync, stopAutoSync } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
 import { BandDetail } from "./components/BandDetail";
@@ -23,24 +22,16 @@ function App() {
   const [, setGroupCode] = useGroupCode();
   const [tab, setTab] = useTab();
   const [online] = useOnlineMode();
-  const [seeded, setSeeded] = useState(false);
   const selectedBandId = useSelectedBandId();
   const selectedBand = useBand(selectedBandId ?? undefined);
 
   useEffect(() => {
-    ensureSeeded().then(() => setSeeded(true));
-  }, []);
-
-  useEffect(() => {
-    // Guard on `seeded` so a sync can never fire against an empty local DB
-    // (e.g. toggling online in the instant before first-run seeding finishes)
-    // and silently report "up to date" without actually pushing anything.
-    if (online && seeded) {
+    if (online) {
       startAutoSync();
       return stopAutoSync;
     }
     stopAutoSync();
-  }, [online, seeded]);
+  }, [online]);
 
   // The account is the source of truth for identity/group; mirror it into the
   // local-only storage the rest of the app already reads, so nothing else has
