@@ -79,6 +79,14 @@ export async function importBands(bands: Band[]): Promise<void> {
   await db.bands.bulkPut(bands);
 }
 
+/** Edits a single band's own fields (name/stage/times/genre) in place — id and description are untouched. */
+export async function updateBand(
+  id: string,
+  patch: Partial<Pick<Band, "name" | "stage" | "day" | "startMinutes" | "endMinutes" | "genre">>,
+): Promise<void> {
+  await db.bands.update(id, patch);
+}
+
 /** Replaces the stage-distance matrix with an imported one (from CSV import). */
 export async function importStageDistances(distances: StageDistance[]): Promise<void> {
   await db.stageDistances.clear();
