@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS, formatMinutes } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useComputedGroupSchedule } from "../state/useGroupSchedule";
+import { syncMustSeeSchedule } from "../state/useRatings";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
 import { useGroupMembers } from "../state/useGroupMembers";
@@ -25,6 +26,14 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
   // The persisted member might belong to a group we've since left, or not exist yet — fall back to self.
   const effectiveMember = members.includes(selectedMember) ? selectedMember : myUserName;
   const isSelf = effectiveMember === myUserName;
+
+  // Backfill: catches 5-star ratings that predate the auto-add feature, or arrived via a
+  // bulk CSV import (which writes ratings directly and never went through setPreRating's
+  // trigger). Only ever reconciles your own schedule, never another member's. Cheap no-op
+  // on repeat visits once everything's already caught up.
+  useEffect(() => {
+    if (isSelf && groupCode && myUserName) syncMustSeeSchedule(groupCode, myUserName);
+  }, [isSelf, groupCode, myUserName]);
 
   const scheduleEntries = useUserSchedule(groupCode, effectiveMember);
   const groupDays = useComputedGroupSchedule(groupCode, bands);

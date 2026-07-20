@@ -110,6 +110,25 @@ async function autoAddMustSee(groupCode: string, bandId: string, userName: strin
   await addToSchedule(groupCode, bandId, userName);
 }
 
+/**
+ * Backfills auto-add for every 5-rated band a user already has, in one pass — for ratings
+ * that were set before the auto-add existed, or that arrived via a bulk CSV import (which
+ * writes ratings straight to the table, bypassing setPreRating and the trigger on it
+ * entirely). Cheap to call repeatedly: each band's own existing-entry check already makes
+ * it a no-op the second time.
+ */
+export async function syncMustSeeSchedule(groupCode: string, userName: string): Promise<void> {
+  if (!userName || !groupCode) return;
+  const fiveStars = await db.ratings
+    .where("groupCode")
+    .equals(groupCode)
+    .filter((r) => r.userName === userName && r.preRating === 5)
+    .toArray();
+  for (const r of fiveStars) {
+    await autoAddMustSee(groupCode, r.bandId, userName);
+  }
+}
+
 export function setPreNotes(groupCode: string, bandId: string, userName: string, preNotes: string) {
   return patchRating(groupCode, bandId, userName, { preNotes });
 }
@@ -188,6 +207,7 @@ export async function importRatings(
       });
     }
     imported++;
+    if (row.preRating === 5) await autoAddMustSee(groupCode, bandId, row.userName);
   }
 
   if (imported > 0) notifyLocalChange();
