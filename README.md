@@ -57,9 +57,12 @@ at all.
   support List and Grid views.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup sync with
-  the group automatically in the background (debounced push on every local
-  change, plus a periodic pull); flip it off and everything stays local until
-  you flip it back on.
+  the group — a debounced push after every local change, plus a pull whenever
+  you navigate between tabs (Bands/Schedule/Sync/Admin) or first load the app.
+  There's no background polling, so the app never refreshes out from under you
+  mid-page; switch tabs (or pull to reload the page) to pick up anyone else's
+  changes. Flip the toggle off and everything stays local until you flip it
+  back on.
 - **Supabase credentials are baked in at build time**, not entered by end users
   — see "Setting up shared sync" below. Everyone in your group just sees a
   toggle, never a URL or API key.
