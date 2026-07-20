@@ -105,3 +105,50 @@ export async function reassignGroupCode(oldCode: string, newCode: string): Promi
   await db.ratings.where("groupCode").equals(oldCode).modify({ groupCode: newCode });
   await db.schedule.where("groupCode").equals(oldCode).modify({ groupCode: newCode });
 }
+
+/**
+ * One-time cleanup: a spreadsheet import put personal rating notes into the shared
+ * `description` column instead of each person's own pre-festival notes. For every band
+ * with a non-empty description, copies that text onto the end of each listed user's
+ * pre-festival notes (a blank line before it if they already had notes) and clears the
+ * band's description. Safe to run more than once — a second pass finds nothing left to
+ * migrate, since the source field is empty by then. Returns how many bands were touched.
+ */
+export async function migrateDescriptionNotes(
+  groupCode: string,
+  userNames: string[],
+): Promise<number> {
+  let migrated = 0;
+  await db.transaction("rw", db.bands, db.ratings, async () => {
+    const bands = await db.bands.toArray();
+    const updatedAt = new Date().toISOString();
+    for (const band of bands) {
+      const note = band.description.trim();
+      if (!note) continue;
+      migrated++;
+      for (const userName of userNames) {
+        const existing = await db.ratings
+          .where("[groupCode+bandId+userName]")
+          .equals([groupCode, band.id, userName])
+          .first();
+        if (existing) {
+          const preNotes = existing.preNotes.trim() ? `${existing.preNotes}\n\n${note}` : note;
+          await db.ratings.update(existing.id!, { preNotes, updatedAt });
+        } else {
+          await db.ratings.add({
+            groupCode,
+            bandId: band.id,
+            userName,
+            preRating: 0,
+            preNotes: note,
+            duringRating: 0,
+            duringNotes: "",
+            updatedAt,
+          });
+        }
+      }
+      await db.bands.update(band.id, { description: "" });
+    }
+  });
+  return migrated;
+}
