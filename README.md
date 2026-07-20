@@ -54,11 +54,7 @@ at all.
   yours to remove — that's what the Group Schedule tab is for); a member
   switcher lets you view — read-only — anyone else in your group's individual
   schedule the same way. Both halves, and both other members' schedules,
-  support List and Grid views. "Adopt into my schedule" on the Group Schedule
-  copies its current picks into your individual schedule as real entries of
-  your own, as a one-time, additive action — useful if you want today's group
-  picks to stick even if the group schedule later shifts as more ratings come
-  in; it never overwrites your own picks either way.
+  support List and Grid views.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup sync with
   the group automatically in the background (debounced push on every local

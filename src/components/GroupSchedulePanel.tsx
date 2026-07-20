@@ -2,8 +2,7 @@ import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS, formatMinutes } from "../types";
 import { useGroupCode } from "../state/useGroup";
-import { useUserName } from "../state/useUser";
-import { useComputedGroupSchedule, adoptGroupSchedule } from "../state/useGroupSchedule";
+import { useComputedGroupSchedule } from "../state/useGroupSchedule";
 import { openBandDetail } from "../state/useSelectedBand";
 import { usePersistedState } from "../state/usePersistedState";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
@@ -11,7 +10,6 @@ import { sortByStageOrder } from "../lib/stageOrder";
 
 export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
   const [groupCode] = useGroupCode();
-  const [userName] = useUserName();
   const days = useComputedGroupSchedule(groupCode, bands);
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-group-schedule-view", "grid");
   const [day, setDay] = useState<Day>(1);
@@ -32,14 +30,6 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
     return map;
   }, [days]);
 
-  const adopt = async () => {
-    if (!confirm("Add every group schedule pick to your personal schedule? This won't remove anything you've already picked.")) {
-      return;
-    }
-    await adoptGroupSchedule(groupCode, userName, days);
-    alert("Added! Check the Individual Schedule tab.");
-  };
-
   return (
     <div>
       <div className="sync-card">
@@ -50,16 +40,9 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
           option means crossing the park less. Not editable. Runs entirely on this device,
           no network needed.
         </p>
-        <div className="sync-row">
-          <p className="status-text" style={{ margin: 0 }}>
-            {totalPicks > 0 ? `${totalPicks} picks` : "No picks yet — rate some bands as a group."}
-          </p>
-          {totalPicks > 0 && (
-            <button className="secondary-btn" onClick={adopt}>
-              Adopt into my schedule
-            </button>
-          )}
-        </div>
+        <p className="status-text" style={{ margin: "10px 0 0" }}>
+          {totalPicks > 0 ? `${totalPicks} picks` : "No picks yet — rate some bands as a group."}
+        </p>
       </div>
 
       <div className="tabs" style={{ marginBottom: 10 }}>
