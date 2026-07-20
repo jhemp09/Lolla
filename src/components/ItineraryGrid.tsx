@@ -14,7 +14,7 @@ interface Props {
 }
 
 const SLOT_MINUTES = 15;
-const SLOT_HEIGHT = 16; // px per 15-minute row
+const SLOT_HEIGHT = 13; // px per 15-minute row — tuned to fit a phone screen without losing readability
 
 export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
   const dayBands = useMemo(() => bands.filter((b) => b.day === day), [bands, day]);
@@ -44,7 +44,7 @@ export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
       <div
         className="itinerary-grid"
         style={{
-          gridTemplateColumns: `56px repeat(${stages.length}, minmax(110px, 1fr))`,
+          gridTemplateColumns: `28px repeat(${stages.length}, minmax(46px, 1fr))`,
           gridTemplateRows: `auto repeat(${totalSlots}, ${SLOT_HEIGHT}px)`,
         }}
       >
@@ -90,7 +90,7 @@ export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
                 style={{
                   gridColumn: col,
                   gridRow: `${startSlot + 2} / span ${span}`,
-                  padding: 2,
+                  padding: 1,
                 }}
               >
                 <div
