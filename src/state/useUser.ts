@@ -26,3 +26,8 @@ export function useUserName(): [string, (name: string) => void] {
   const set = useCallback((n: string) => setUserName(n), []);
   return [name, set];
 }
+
+/** Non-hook read for use outside components. */
+export function getUserName(): string {
+  return getSnapshot();
+}

@@ -61,15 +61,16 @@
 -- {"role": "admin"} — see "Making yourself the admin" in the README. Everyone
 -- can still read them. app_metadata is never client-writable (only via SQL
 -- editor or the service role), unlike user_metadata, so it's safe to trust in
--- a policy. "ratings" now also requires either owning the row (user_name
--- matches your own account's first_name) or being admin, so a non-admin can
--- still rate bands themselves but can't bulk-write ratings under someone
--- else's name via the ratings CSV import. Both admin-gated tables also grant
--- delete (admin only) — the app fully replaces them on every admin push
--- (delete-then-insert) rather than upserting, so a device's local table can
--- never end up permanently merged with stale rows still sitting in Supabase
--- (e.g. the built-in sample lineup a device pushed up before ever importing
--- a real one).
+-- a policy. "ratings" and "schedule" now also require either owning the row
+-- (user_name matches your own account's first_name) or being admin, so a
+-- non-admin can still rate bands and manage their own schedule themselves but
+-- can't bulk-write rows under someone else's name (e.g. via the ratings CSV
+-- import) or edit another group member's schedule. Both admin-gated tables
+-- also grant delete (admin only) — the app fully replaces them on every admin
+-- push (delete-then-insert) rather than upserting, so a device's local table
+-- can never end up permanently merged with stale rows still sitting in
+-- Supabase (e.g. the built-in sample lineup a device pushed up before ever
+-- importing a real one).
 
 create schema if not exists lolla;
 
@@ -162,10 +163,24 @@ create policy "self or admin update ratings" on lolla.ratings for update using (
 
 drop policy if exists "authenticated read schedule" on lolla.schedule;
 drop policy if exists "authenticated write schedule" on lolla.schedule;
+drop policy if exists "self or admin write schedule" on lolla.schedule;
 drop policy if exists "authenticated update schedule" on lolla.schedule;
+drop policy if exists "self or admin update schedule" on lolla.schedule;
 create policy "authenticated read schedule" on lolla.schedule for select using (auth.role() = 'authenticated');
-create policy "authenticated write schedule" on lolla.schedule for insert with check (auth.role() = 'authenticated');
-create policy "authenticated update schedule" on lolla.schedule for update using (auth.role() = 'authenticated');
+create policy "self or admin write schedule" on lolla.schedule for insert with check (
+  auth.role() = 'authenticated'
+  and (
+    user_name = (auth.jwt() -> 'user_metadata' ->> 'first_name')
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  )
+);
+create policy "self or admin update schedule" on lolla.schedule for update using (
+  auth.role() = 'authenticated'
+  and (
+    user_name = (auth.jwt() -> 'user_metadata' ->> 'first_name')
+    or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
+  )
+);
 
 -- RLS policies alone aren't enough for a non-public schema: the API roles also
 -- need schema/table-level grants, since REST access is denied by default here.
