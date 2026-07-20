@@ -386,6 +386,7 @@
 }
 
 .grid-band {
+  position: relative;
   background: var(--accent-bg);
   border: 1px solid var(--accent-border);
   border-radius: 4px;
@@ -401,6 +402,33 @@
   word-break: break-word;
   display: flex;
   align-items: center;
+}
+
+.grid-band-avoid {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  padding: 1px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.band-card-avoid {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 18px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .grid-band.group {

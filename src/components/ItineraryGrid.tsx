@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Band, Day } from "../types";
 import { formatMinutes } from "../types";
 import { openBandDetail } from "../state/useSelectedBand";
+import { AvoidIcon } from "./AvoidIcon";
 
 export type HighlightCategory = "group" | "deviation";
 
@@ -11,12 +12,14 @@ interface Props {
   stages: string[];
   /** bandId -> "group" (matches the group schedule) or "deviation" (this schedule's own pick, not in the group's). */
   highlights?: Map<string, HighlightCategory>;
+  /** Band IDs this member rated 1 — flagged with a small "avoid" icon regardless of highlight category. */
+  avoidBandIds?: Set<string>;
 }
 
 const SLOT_MINUTES = 15;
 const SLOT_HEIGHT = 13; // px per 15-minute row — tuned to fit a phone screen without losing readability
 
-export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
+export function ItineraryGrid({ bands, day, stages, highlights, avoidBandIds }: Props) {
   const dayBands = useMemo(() => bands.filter((b) => b.day === day), [bands, day]);
 
   const { gridStart, totalSlots } = useMemo(() => {
@@ -98,6 +101,9 @@ export function ItineraryGrid({ bands, day, stages, highlights }: Props) {
                   onClick={() => openBandDetail(band.id)}
                 >
                   {band.name}
+                  {avoidBandIds?.has(band.id) && (
+                    <AvoidIcon className="grid-band-avoid" />
+                  )}
                 </div>
               </div>
             );

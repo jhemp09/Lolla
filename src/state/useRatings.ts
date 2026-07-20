@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { notifyLocalChange } from "../lib/autoSync";
@@ -44,6 +45,20 @@ export function usePreRating(groupCode: string, bandId: string, userName: string
     [groupCode, bandId, userName],
   );
   return rating?.preRating ?? 0;
+}
+
+/** Band IDs a given member rated 1 pre-festival — "actively want to avoid," surfaced as a warning icon on their schedule. */
+export function useAvoidBandIds(groupCode: string, userName: string): Set<string> {
+  const rows = useLiveQuery(
+    () =>
+      db.ratings
+        .where("groupCode")
+        .equals(groupCode)
+        .filter((r) => r.userName === userName && r.preRating === 1)
+        .toArray(),
+    [groupCode, userName],
+  );
+  return useMemo(() => new Set((rows ?? []).map((r) => r.bandId)), [rows]);
 }
 
 async function patchRating(
