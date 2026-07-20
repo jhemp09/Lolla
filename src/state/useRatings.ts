@@ -7,33 +7,6 @@ import type { RatingImportRow } from "../lib/csv";
 import { addToSchedule } from "./useSchedule";
 import { computeGroupSchedule } from "./useGroupSchedule";
 
-export interface BandRating {
-  preRating: number;
-  preNotes: string;
-  duringRating: number;
-  duringNotes: string;
-}
-
-const EMPTY_RATING: BandRating = { preRating: 0, preNotes: "", duringRating: 0, duringNotes: "" };
-
-export function useBandRating(groupCode: string, bandId: string, userName: string): BandRating {
-  const rating = useLiveQuery(
-    () =>
-      db.ratings
-        .where("[groupCode+bandId+userName]")
-        .equals([groupCode, bandId, userName])
-        .first(),
-    [groupCode, bandId, userName],
-  );
-  if (!rating) return EMPTY_RATING;
-  return {
-    preRating: rating.preRating,
-    preNotes: rating.preNotes,
-    duringRating: rating.duringRating,
-    duringNotes: rating.duringNotes,
-  };
-}
-
 /** Cheap read for list-tile indicators that only need the pre-festival number, not notes. */
 export function usePreRating(groupCode: string, bandId: string, userName: string): number {
   const rating = useLiveQuery(
@@ -154,26 +127,6 @@ export function setDuringRating(groupCode: string, bandId: string, userName: str
 
 export function setDuringNotes(groupCode: string, bandId: string, userName: string, duringNotes: string) {
   return patchRating(groupCode, bandId, userName, { duringNotes });
-}
-
-/** All of the current group's ratings for a band (every member who's rated it). */
-export function useBandRatings(groupCode: string, bandId: string) {
-  return (
-    useLiveQuery(
-      () =>
-        db.ratings
-          .where("bandId")
-          .equals(bandId)
-          .filter((r) => r.groupCode === groupCode)
-          .toArray(),
-      [groupCode, bandId],
-    ) ?? []
-  );
-}
-
-/** Every rating recorded for the current group (used by the schedule optimizer). */
-export async function getGroupRatings(groupCode: string) {
-  return db.ratings.where("groupCode").equals(groupCode).toArray();
 }
 
 /**
