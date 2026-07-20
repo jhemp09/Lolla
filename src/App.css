@@ -293,7 +293,12 @@
 }
 
 .bottom-nav-icon {
-  font-size: 20px;
+  display: flex;
+}
+
+.bottom-nav-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .user-picker {

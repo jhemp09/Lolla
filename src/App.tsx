@@ -9,6 +9,7 @@ import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
 import { startAutoSync, stopAutoSync, syncNow } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
+import { BandsIcon, ScheduleIcon, SyncIcon, AdminIcon } from "./components/NavIcons";
 import { BandDetail } from "./components/BandDetail";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
@@ -92,21 +93,21 @@ function App() {
           className={`bottom-nav-btn${tab === "bands" ? " active" : ""}`}
           onClick={() => goToTab("bands")}
         >
-          <span className="bottom-nav-icon">🎵</span>
+          <span className="bottom-nav-icon"><BandsIcon /></span>
           Bands
         </button>
         <button
           className={`bottom-nav-btn${tab === "schedule" ? " active" : ""}`}
           onClick={() => goToTab("schedule")}
         >
-          <span className="bottom-nav-icon">🗓️</span>
+          <span className="bottom-nav-icon"><ScheduleIcon /></span>
           Schedule
         </button>
         <button
           className={`bottom-nav-btn${tab === "sync" ? " active" : ""}`}
           onClick={() => goToTab("sync")}
         >
-          <span className="bottom-nav-icon">🔄</span>
+          <span className="bottom-nav-icon"><SyncIcon /></span>
           Sync
         </button>
         {isAdmin && (
@@ -114,7 +115,7 @@ function App() {
             className={`bottom-nav-btn${tab === "admin" ? " active" : ""}`}
             onClick={() => goToTab("admin")}
           >
-            <span className="bottom-nav-icon">🛠️</span>
+            <span className="bottom-nav-icon"><AdminIcon /></span>
             Admin
           </button>
         )}
