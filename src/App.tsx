@@ -27,8 +27,11 @@ function App() {
   const selectedBand = useBand(selectedBandId ?? undefined);
 
   // No periodic background polling — instead, sync whenever the user navigates
-  // between tabs, so data is fresh the moment they land on a page.
+  // between tabs, so data is fresh the moment they land on a page. Also closes
+  // any open band detail — otherwise it stayed on top since it's a separate
+  // piece of state from the active tab, and only "‹ Back" ever cleared it.
   function goToTab(next: typeof tab) {
+    closeBandDetail();
     setTab(next);
     syncNow();
   }
