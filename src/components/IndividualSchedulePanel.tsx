@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Band, Day } from "../types";
-import { DAY_LABELS, formatMinutes } from "../types";
+import { DAY_LABELS } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useComputedGroupSchedule } from "../state/useGroupSchedule";
 import { syncMustSeeSchedule, useAvoidBandIds } from "../state/useRatings";
@@ -10,6 +10,7 @@ import { useGroupMembers } from "../state/useGroupMembers";
 import { usePersistedState } from "../state/usePersistedState";
 import { openBandDetail } from "../state/useSelectedBand";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
+import { BandCardHeader } from "./BandCardHeader";
 import { AvoidIcon } from "./AvoidIcon";
 import { sortByStageOrder } from "../lib/stageOrder";
 
@@ -174,15 +175,7 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
                 onClick={() => openBandDetail(b.id)}
               >
                 {avoidBandIds.has(b.id) && <AvoidIcon className="band-card-avoid" />}
-                <div className="band-card-top">
-                  <div>
-                    <div className="band-name">{b.name}</div>
-                    <div className="band-meta">
-                      {formatMinutes(b.startMinutes)} – {formatMinutes(b.endMinutes)}
-                    </div>
-                  </div>
-                  <span className="badge">{b.stage}</span>
-                </div>
+                <BandCardHeader band={b} right={<span className="badge">{b.stage}</span>} />
                 <div className="band-card-actions">
                   <span className={`diff-badge ${highlights.get(b.id)}`}>
                     {highlights.get(b.id) === "group" ? "Group schedule" : "Personal pick"}

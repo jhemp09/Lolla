@@ -1,20 +1,8 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { createLocalStore } from "./localStore";
 
-const STORAGE_KEY = "lolla-group-code";
-const listeners = new Set<() => void>();
-
-function emitChange() {
-  for (const l of listeners) l();
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-function getSnapshot(): string {
-  return localStorage.getItem(STORAGE_KEY) ?? "";
-}
+const store = createLocalStore<string>("lolla-group-code", "", {
+  serialize: (code: string) => code.trim().toUpperCase(),
+});
 
 /** Short, human-shareable code — unambiguous alphabet (no 0/O/1/I) since people read these aloud. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -27,18 +15,8 @@ export function generateGroupCode(): string {
   return code;
 }
 
-export function setGroupCode(code: string) {
-  localStorage.setItem(STORAGE_KEY, code.trim().toUpperCase());
-  emitChange();
-}
-
-export function useGroupCode(): [string, (code: string) => void] {
-  const code = useSyncExternalStore(subscribe, getSnapshot);
-  const set = useCallback((c: string) => setGroupCode(c), []);
-  return [code, set];
-}
+export const setGroupCode = store.set;
+export const useGroupCode = store.useValue;
 
 /** Non-hook read for use outside components. */
-export function getGroupCode(): string {
-  return getSnapshot();
-}
+export const getGroupCode = store.get;

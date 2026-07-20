@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
-import { DAY_LABELS, formatMinutes } from "../types";
+import { DAY_LABELS } from "../types";
 import { useGroupCode } from "../state/useGroup";
 import { useComputedGroupSchedule } from "../state/useGroupSchedule";
 import { openBandDetail } from "../state/useSelectedBand";
 import { usePersistedState } from "../state/usePersistedState";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
+import { BandCardHeader } from "./BandCardHeader";
 import { sortByStageOrder } from "../lib/stageOrder";
 
 export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
@@ -86,15 +87,7 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
                     className="band-card clickable"
                     onClick={() => openBandDetail(band.id)}
                   >
-                    <div className="band-card-top">
-                      <div>
-                        <div className="band-name">{band.name}</div>
-                        <div className="band-meta">
-                          {formatMinutes(band.startMinutes)} – {formatMinutes(band.endMinutes)}
-                        </div>
-                      </div>
-                      <span className="badge">{band.stage}</span>
-                    </div>
+                    <BandCardHeader band={band} right={<span className="badge">{band.stage}</span>} />
                   </div>
                 );
               })}

@@ -3,7 +3,7 @@
  * the festival grounds rather than alphabetical or import order. Any stage not in
  * this list (e.g. a rename, or a future year's new stage) sorts after these, A-Z.
  */
-export const STAGE_ORDER = ["Bud Light", "Tito's", "Airbnb", "BMI", "Perry's", "Allianz", "T-Mobile"];
+const STAGE_ORDER = ["Bud Light", "Tito's", "Airbnb", "BMI", "Perry's", "Allianz", "T-Mobile"];
 
 export function sortByStageOrder(stages: string[]): string[] {
   return [...stages].sort((a, b) => {
