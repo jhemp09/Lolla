@@ -16,9 +16,34 @@
 }
 
 .app-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.3px;
+}
+
+.lolla-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.welcome-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 28px;
+}
+
+.welcome-heading .lolla-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
 }
 
 .user-chip {

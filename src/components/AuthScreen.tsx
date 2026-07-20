@@ -16,7 +16,9 @@ export function AuthScreen() {
   if (!config.configured) {
     return (
       <div className="user-picker">
-        <h1 style={{ fontSize: 28 }}>Welcome 🎪</h1>
+        <h1 className="welcome-heading">
+          Welcome <img src="/lolla-icon.png" alt="" className="lolla-logo" />
+        </h1>
         <p>
           This build isn't connected to a Supabase project yet, so accounts
           aren't available. Set <code>VITE_SUPABASE_URL</code> and{" "}
@@ -47,7 +49,9 @@ export function AuthScreen() {
 
   return (
     <div className="user-picker">
-      <h1 style={{ fontSize: 28 }}>Welcome 🎪</h1>
+      <h1 className="welcome-heading">
+        Welcome <img src="/lolla-icon.png" alt="" className="lolla-logo" />
+      </h1>
       <p>
         {mode === "signup"
           ? "Create an account so your ratings and schedule sync with your group."
