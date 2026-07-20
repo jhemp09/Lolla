@@ -34,29 +34,23 @@ export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
     <div>
       <div className="sync-card">
         <p className="status-text">
-          Updates automatically as ratings come in from you or your group — no need to
-          regenerate. Maximizes total group rating first — arriving up to 15 minutes late
-          or leaving up to 15 minutes early is fine — then prefers whichever equally-rated
-          option means crossing the park less. Not editable. Runs entirely on this device,
-          no network needed.
-        </p>
-        <p className="status-text" style={{ margin: "10px 0 0" }}>
-          {totalPicks > 0 ? `${totalPicks} picks` : "No picks yet — rate some bands as a group."}
+          This schedule is generated based on the rankings of the group members, it is not
+          editable, but you can make edits in your individual schedule.
         </p>
       </div>
 
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button
-          className={`tab-btn${view === "list" ? " active" : ""}`}
-          onClick={() => setView("list")}
-        >
-          List
-        </button>
-        <button
           className={`tab-btn${view === "grid" ? " active" : ""}`}
           onClick={() => setView("grid")}
         >
           Grid
+        </button>
+        <button
+          className={`tab-btn${view === "list" ? " active" : ""}`}
+          onClick={() => setView("list")}
+        >
+          List
         </button>
       </div>
 

@@ -20,7 +20,7 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
     "lolla-individual-member",
     myUserName,
   );
-  const [view, setView] = usePersistedState<"list" | "grid">("lolla-individual-view", "list");
+  const [view, setView] = usePersistedState<"list" | "grid">("lolla-individual-view", "grid");
   const [day, setDay] = useState<Day>(1);
 
   // The persisted member might belong to a group we've since left, or not exist yet — fall back to self.
@@ -82,6 +82,14 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
 
   return (
     <div>
+      <div className="sync-card">
+        <p className="status-text">
+          The schedule below shows the group schedule and also shows anything you have marked
+          as a "Can't Miss" act, and anything you have manually added to your schedule. You can
+          also view the schedules of other members of your group.
+        </p>
+      </div>
+
       <div style={{ marginBottom: 6 }}>
         <div className="field-label" style={{ margin: "0 0 4px" }}>
           Viewing
@@ -106,16 +114,16 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
 
       <div className="tabs" style={{ marginBottom: 10 }}>
         <button
-          className={`tab-btn${view === "list" ? " active" : ""}`}
-          onClick={() => setView("list")}
-        >
-          List
-        </button>
-        <button
           className={`tab-btn${view === "grid" ? " active" : ""}`}
           onClick={() => setView("grid")}
         >
           Grid
+        </button>
+        <button
+          className={`tab-btn${view === "list" ? " active" : ""}`}
+          onClick={() => setView("list")}
+        >
+          List
         </button>
       </div>
 
