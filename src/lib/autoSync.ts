@@ -21,6 +21,22 @@ function setStatus(next: SyncStatus, message = "") {
   for (const l of listeners) l();
 }
 
+/**
+ * Postgrest errors (RLS denials, constraint violations, etc.) put the actionable
+ * detail in `hint`/`code`, not `message` — a bare "new row violates row-level
+ * security policy" tells you nothing about *which* policy or *why*. Surface all of
+ * it in the UI so a report of "sync failed" comes with enough to diagnose remotely,
+ * instead of needing screen-share or console access on someone else's device.
+ */
+function describeError(e: unknown): string {
+  if (e && typeof e === "object") {
+    const err = e as { message?: string; hint?: string; code?: string };
+    const parts = [err.message, err.hint].filter((p): p is string => !!p);
+    if (parts.length) return err.code ? `${parts.join(" — ")} (${err.code})` : parts.join(" — ");
+  }
+  return e instanceof Error ? e.message : "Sync failed.";
+}
+
 async function runSync() {
   const config = getSyncConfig();
   const groupCode = getGroupCode();
@@ -36,7 +52,8 @@ async function runSync() {
     setLastSync(new Date().toISOString());
     setStatus("idle");
   } catch (e) {
-    setStatus("error", e instanceof Error ? e.message : "Sync failed.");
+    console.error("Sync failed:", e);
+    setStatus("error", describeError(e));
   }
 }
 
