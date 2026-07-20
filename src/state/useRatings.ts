@@ -34,6 +34,21 @@ export function useAvoidBandIds(groupCode: string, userName: string): Set<string
   return useMemo(() => new Set((rows ?? []).map((r) => r.bandId)), [rows]);
 }
 
+/** This user's pre-festival rating for every band they've rated in this group — for the Bands
+ * list's rating filter. A band with no row here is implicitly unrated (0), same as usePreRating. */
+export function useUserPreRatings(groupCode: string, userName: string): Map<string, number> {
+  const rows = useLiveQuery(
+    () =>
+      db.ratings
+        .where("groupCode")
+        .equals(groupCode)
+        .filter((r) => r.userName === userName)
+        .toArray(),
+    [groupCode, userName],
+  );
+  return useMemo(() => new Map((rows ?? []).map((r) => [r.bandId, r.preRating])), [rows]);
+}
+
 async function patchRating(
   groupCode: string,
   bandId: string,
