@@ -48,6 +48,56 @@ interface RemoteStageDistance {
 }
 
 /**
+ * Collapses any local duplicate rows sharing the same (groupCode, bandId, userName)
+ * key, keeping only the most recently updated one. Duplicates should be impossible
+ * going forward — patchRating, importRatings, addToSchedule, and removeFromSchedule
+ * are all transaction-wrapped now — but a device that already picked one up before
+ * that fix would otherwise send both rows in the same upsert batch below, and
+ * Postgres rejects the *entire* batch when that happens ("ON CONFLICT DO UPDATE
+ * command cannot affect row a second time", SQLSTATE 21000), leaving that device
+ * permanently stuck. Running this before every push self-heals it instead.
+ */
+async function dedupeLocalRatings(groupCode: string): Promise<void> {
+  await db.transaction("rw", db.ratings, async () => {
+    const rows = await db.ratings.where("groupCode").equals(groupCode).toArray();
+    const byKey = new Map<string, Rating[]>();
+    for (const r of rows) {
+      const key = `${r.bandId}::${r.userName}`;
+      const list = byKey.get(key);
+      if (list) list.push(r);
+      else byKey.set(key, [r]);
+    }
+    for (const list of byKey.values()) {
+      if (list.length < 2) continue;
+      list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      for (const stale of list.slice(1)) {
+        await db.ratings.delete(stale.id!);
+      }
+    }
+  });
+}
+
+async function dedupeLocalSchedule(groupCode: string): Promise<void> {
+  await db.transaction("rw", db.schedule, async () => {
+    const rows = await db.schedule.where("groupCode").equals(groupCode).toArray();
+    const byKey = new Map<string, ScheduleEntry[]>();
+    for (const s of rows) {
+      const key = `${s.bandId}::${s.userName}`;
+      const list = byKey.get(key);
+      if (list) list.push(s);
+      else byKey.set(key, [s]);
+    }
+    for (const list of byKey.values()) {
+      if (list.length < 2) continue;
+      list.sort((a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime());
+      for (const stale of list.slice(1)) {
+        await db.schedule.delete(stale.id!);
+      }
+    }
+  });
+}
+
+/**
  * Pushes everything on this device up to the shared Supabase project. Ratings and
  * schedule are scoped to the current group; a device's local copy of both includes
  * every group member's rows (pulled down so the optimizer and "view someone else's
@@ -70,6 +120,8 @@ interface RemoteStageDistance {
  */
 export async function pushToRemote(groupCode: string): Promise<void> {
   const sb = client();
+
+  await Promise.all([dedupeLocalRatings(groupCode), dedupeLocalSchedule(groupCode)]);
 
   const [bands, distances, ratings, schedule, { data: sessionData }] = await Promise.all([
     db.bands.toArray(),

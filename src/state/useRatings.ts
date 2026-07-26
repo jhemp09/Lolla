@@ -56,27 +56,33 @@ async function patchRating(
   patch: Partial<Pick<Rating, "preRating" | "preNotes" | "duringRating" | "duringNotes">>,
 ) {
   if (!userName || !groupCode) return;
-  const existing = await db.ratings
-    .where("[groupCode+bandId+userName]")
-    .equals([groupCode, bandId, userName])
-    .first();
-
   const updatedAt = new Date().toISOString();
-  if (existing) {
-    await db.ratings.update(existing.id!, { ...patch, updatedAt });
-  } else {
-    await db.ratings.add({
-      groupCode,
-      bandId,
-      userName,
-      preRating: 0,
-      preNotes: "",
-      duringRating: 0,
-      duringNotes: "",
-      ...patch,
-      updatedAt,
-    });
-  }
+  // Wrapped in one transaction so the "does a row already exist" check and the add/update
+  // it decides on can't be split apart by another write for the same key landing in between
+  // — that race is exactly how two local rows for the same (groupCode, bandId, userName)
+  // used to end up existing at once, which is harmless to read but fatal on push (Postgres's
+  // upsert can't target the same row twice in one statement and rejects the whole batch).
+  await db.transaction("rw", db.ratings, async () => {
+    const existing = await db.ratings
+      .where("[groupCode+bandId+userName]")
+      .equals([groupCode, bandId, userName])
+      .first();
+    if (existing) {
+      await db.ratings.update(existing.id!, { ...patch, updatedAt });
+    } else {
+      await db.ratings.add({
+        groupCode,
+        bandId,
+        userName,
+        preRating: 0,
+        preNotes: "",
+        duringRating: 0,
+        duringNotes: "",
+        ...patch,
+        updatedAt,
+      });
+    }
+  });
   notifyLocalChange();
 }
 
@@ -167,28 +173,30 @@ export async function importRatings(
       skipped.push(row.bandName);
       continue;
     }
-    const existing = await db.ratings
-      .where("[groupCode+bandId+userName]")
-      .equals([groupCode, bandId, row.userName])
-      .first();
-    if (existing) {
-      await db.ratings.update(existing.id!, {
-        preRating: row.preRating,
-        preNotes: row.preNotes,
-        updatedAt,
-      });
-    } else {
-      await db.ratings.add({
-        groupCode,
-        bandId,
-        userName: row.userName,
-        preRating: row.preRating,
-        preNotes: row.preNotes,
-        duringRating: 0,
-        duringNotes: "",
-        updatedAt,
-      });
-    }
+    await db.transaction("rw", db.ratings, async () => {
+      const existing = await db.ratings
+        .where("[groupCode+bandId+userName]")
+        .equals([groupCode, bandId, row.userName])
+        .first();
+      if (existing) {
+        await db.ratings.update(existing.id!, {
+          preRating: row.preRating,
+          preNotes: row.preNotes,
+          updatedAt,
+        });
+      } else {
+        await db.ratings.add({
+          groupCode,
+          bandId,
+          userName: row.userName,
+          preRating: row.preRating,
+          preNotes: row.preNotes,
+          duringRating: 0,
+          duringNotes: "",
+          updatedAt,
+        });
+      }
+    });
     imported++;
     if (row.preRating === 5) await autoAddMustSee(groupCode, bandId, row.userName);
   }
