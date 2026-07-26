@@ -185,6 +185,21 @@
   margin-top: 10px;
 }
 
+.spotify-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  text-decoration: none;
+}
+
+.spotify-btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .schedule-btn {
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);

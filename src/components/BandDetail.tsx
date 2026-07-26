@@ -10,6 +10,8 @@ import { useGroupCode } from "../state/useGroup";
 import { useIsAdmin } from "../state/useAuth";
 import { useAllBands } from "../state/useBands";
 import { BandEditForm } from "./BandEditForm";
+import { SpotifyIcon } from "./SpotifyIcon";
+import { spotifySearchUrl } from "../lib/spotify";
 import { PRE_FESTIVAL_LABELS, DURING_FESTIVAL_LABELS } from "../lib/ratingLabels";
 
 const EMPTY: Pick<Rating, "preRating" | "preNotes" | "duringRating" | "duringNotes"> = {
@@ -174,6 +176,15 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
               {scheduled ? "✓ In schedule" : "+ Add to my individual schedule"}
             </button>
           </div>
+          <a
+            className="secondary-btn spotify-btn"
+            href={spotifySearchUrl(band.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <SpotifyIcon className="spotify-btn-icon" />
+            Listen on Spotify
+          </a>
         </div>
       )}
 
