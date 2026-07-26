@@ -30,21 +30,25 @@ export function aggregateRatingWeights(
 const MAX_SKIP_MINUTES = 15;
 
 /**
- * Picks, for each day, the sequence of rated bands that maximizes total group rating.
- * Exact start/end times aren't a hard requirement — arriving a bit late or leaving a bit
- * early is fine — but you can't be two places at once, and a chain only makes sense if you
- * actually see most of each show, not just clip the edge of it while walking through. So
- * two picks can chain if there's a walk window that fits within MAX_SKIP_MINUTES of slack
- * at each end — leaving i no earlier than MAX_SKIP_MINUTES before it ends, arriving at j no
- * later than MAX_SKIP_MINUTES after it starts. The only thing walking distance affects
- * beyond that is which of several equally-rated schedules to prefer: given a tie in total
- * rating, the one with less total walking wins. Modeled as weighted interval scheduling
- * generalized with a stage-transition cost: each rated band is a node, with a directed edge
- * i -> j (i earlier by start time) whenever that window fits the walk. Two DP values
- * propagate together per node: the max rating reachable (primary), and the minimum total
- * walking minutes to achieve that rating (secondary, tie-break only) — so the result is the
- * highest-rated schedule for the day, and among schedules tied for highest-rated, the one
- * that crosses the park least. O(n^2), runs fully offline.
+ * Picks, for each day, the sequence of rated bands that maximizes total group rating —
+ * where each band's raw group-rating total is squared before it's summed, so one band
+ * the whole group loves outweighs a scattering of bands nobody loves quite as much, even
+ * when the scattered ones add up to a higher raw total (see the squaring comment in
+ * optimizeDay for the worked example). Exact start/end times aren't a hard requirement —
+ * arriving a bit late or leaving a bit early is fine — but you can't be two places at
+ * once, and a chain only makes sense if you actually see most of each show, not just clip
+ * the edge of it while walking through. So two picks can chain if there's a walk window
+ * that fits within MAX_SKIP_MINUTES of slack at each end — leaving i no earlier than
+ * MAX_SKIP_MINUTES before it ends, arriving at j no later than MAX_SKIP_MINUTES after it
+ * starts. The only thing walking distance affects beyond that is which of several
+ * equally-scored schedules to prefer: given a tie, the one with less total walking wins.
+ * Modeled as weighted interval scheduling generalized with a stage-transition cost: each
+ * rated band is a node, with a directed edge i -> j (i earlier by start time) whenever
+ * that window fits the walk. Two DP values propagate together per node: the max score
+ * reachable (primary), and the minimum total walking minutes to achieve that score
+ * (secondary, tie-break only) — so the result is the highest-scoring schedule for the
+ * day, and among schedules tied for highest-scoring, the one that crosses the park
+ * least. O(n^2), runs fully offline.
  */
 export function optimizeGroupSchedule(
   bands: Band[],
@@ -68,7 +72,18 @@ function optimizeDay(
   const n = candidates.length;
   if (n === 0) return { day, bandIds: [], totalScore: 0 };
 
-  const weight = candidates.map((b) => ratingWeights.get(b.id) ?? 0);
+  // Squaring each band's raw group-rating total (rather than using it as-is) means one
+  // band the whole group loves outweighs a scattering of bands nobody loves quite as
+  // much, even when the scattered ones add up to more — e.g. a band both people rated 4
+  // (total 8, squared 64) beats two other, unrelated bands totalling 6 and 5 (squared
+  // 36 + 25 = 61) despite 6 + 5 > 8 on a raw sum. A plain sum has no preference between
+  // "one thing everyone loves" and "a pile of things nobody loves quite as much" as long
+  // as the totals match, which routinely traded away a mutual favorite for two
+  // lower-consensus picks that simply happened to fit together and add up higher.
+  const weight = candidates.map((b) => {
+    const raw = ratingWeights.get(b.id) ?? 0;
+    return raw * raw;
+  });
   const best = new Array<number>(n).fill(0);
   const bestWalk = new Array<number>(n).fill(0);
   const prev = new Array<number>(n).fill(-1);

@@ -211,7 +211,8 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
         <div className="sync-card">
           <h2 style={{ fontSize: 14 }}>Group ratings ({groupTotal} total)</h2>
           <p className="status-text" style={{ marginTop: 4 }}>
-            This total is exactly what the group schedule scores this band on.
+            The group schedule ranks bands by this total — favoring a band the whole
+            group rates highly over ones that only add up to more.
           </p>
           <div style={{ marginTop: 8 }}>
             {groupRatings.map((r) => (
