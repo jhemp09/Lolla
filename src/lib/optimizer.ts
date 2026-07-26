@@ -46,11 +46,19 @@ export function aggregateRatingWeights(
 const MAX_SKIP_MINUTES = 15;
 
 /**
+ * How hard each band's average group rating is pushed toward rewarding consensus before
+ * chain scores are summed — see the comment in optimizeDay for what this trades off and
+ * why 4 specifically. Tune up for an even stronger "prefer one mutual favorite" bias, or
+ * down toward 1 to go back to a plain sum with no such preference.
+ */
+const RATING_EXPONENT = 4;
+
+/**
  * Picks, for each day, the sequence of rated bands that maximizes total group rating —
- * where each band's average group rating is squared before it's summed, so one band the
- * whole group loves outweighs a scattering of bands nobody loves quite as much, even
- * when the scattered ones would add up to more on a raw sum (see the squaring comment in
- * optimizeDay for the worked example). Exact start/end times aren't a hard requirement —
+ * where each band's average group rating is raised to RATING_EXPONENT before it's
+ * summed, so one band the whole group loves outweighs a scattering of bands nobody loves
+ * quite as much, even when the scattered ones would add up to more on a raw sum (see the
+ * worked example in optimizeDay). Exact start/end times aren't a hard requirement —
  * arriving a bit late or leaving a bit early is fine — but you can't be two places at
  * once, and a chain only makes sense if you actually see most of each show, not just clip
  * the edge of it while walking through. So two picks can chain if there's a walk window
@@ -94,17 +102,22 @@ function optimizeDay(
   const n = candidates.length;
   if (n === 0) return { day, bandIds: [], totalScore: 0 };
 
-  // Squaring each band's average group rating (rather than using it as-is) means one
-  // band the whole group loves outweighs a scattering of bands nobody loves quite as
-  // much, even when the raw averages alone would add up to more — e.g. a band both
-  // people rated 4 (avg 4, squared 16) beats two other, unrelated bands averaging 3 and
-  // 2.5 (squared 9 + 6.25 = 15.25) despite 3 + 2.5 > 4 on a raw sum of averages. Plainly
+  // Raising each band's average group rating to a power (rather than using it as-is)
+  // means one band the whole group loves outweighs a scattering of bands nobody loves
+  // quite as much, even when the raw averages alone would add up to more. Plainly
   // summing has no preference between "one thing everyone loves" and "a pile of things
   // nobody loves quite as much" as long as the totals match, which routinely traded away
-  // a mutual favorite for two lower-consensus picks that happened to fit together.
+  // a mutual favorite for two lower-consensus picks that happened to fit together —
+  // squaring alone turned out not to push hard enough: a 4.5-average band (squared
+  // 20.25) still lost to two overlapping 4.0 and 3.0-average bands (squared 16 + 9 =
+  // 25). RATING_EXPONENT = 4 fixes that specific case with real margin (410 vs 337)
+  // while still letting a genuinely much bigger combo win outright (two 5.0s beat one
+  // 2.5 easily) and still letting two comparably-good picks (say 4.0 and 4.0) edge out
+  // one only slightly higher single pick (4.5) — it's a push toward consensus, not an
+  // absolute rule that fewer picks always wins.
   const weight = candidates.map((b) => {
     const raw = ratingWeights.get(b.id) ?? 0;
-    return raw * raw;
+    return raw ** RATING_EXPONENT;
   });
   const best = new Array<number>(n).fill(0);
   // Cumulative walking minutes for the best chain ending at this node — propagates
