@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
@@ -8,9 +8,11 @@ import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
 import { useGroupMembers } from "../state/useGroupMembers";
 import { usePersistedState } from "../state/usePersistedState";
+import { useIsAdmin } from "../state/useAuth";
 import { openBandDetail } from "../state/useSelectedBand";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
+import { AddBandForm } from "./AddBandForm";
 import { AvoidIcon } from "./AvoidIcon";
 import { sortByStageOrder } from "../lib/stageOrder";
 
@@ -23,12 +25,14 @@ interface Props {
 export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
   const [myUserName] = useUserName();
   const [groupCode] = useGroupCode();
+  const isAdmin = useIsAdmin();
   const members = useGroupMembers(groupCode);
   const [selectedMember, setSelectedMember] = usePersistedState(
     "lolla-individual-member",
     myUserName,
   );
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-individual-view", "grid");
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // The persisted member might belong to a group we've since left, or not exist yet — fall back to self.
   const effectiveMember = members.includes(selectedMember) ? selectedMember : myUserName;
@@ -126,20 +130,31 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
         </span>
       </p>
 
-      <div className="tabs" style={{ marginBottom: 10 }}>
-        <button
-          className={`tab-btn${view === "grid" ? " active" : ""}`}
-          onClick={() => setView("grid")}
-        >
-          Grid
-        </button>
-        <button
-          className={`tab-btn${view === "list" ? " active" : ""}`}
-          onClick={() => setView("list")}
-        >
-          List
-        </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div className="tabs">
+          <button
+            className={`tab-btn${view === "grid" ? " active" : ""}`}
+            onClick={() => setView("grid")}
+          >
+            Grid
+          </button>
+          <button
+            className={`tab-btn${view === "list" ? " active" : ""}`}
+            onClick={() => setView("list")}
+          >
+            List
+          </button>
+        </div>
+        {isAdmin && !showAddForm && (
+          <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
+            + Add band
+          </button>
+        )}
       </div>
+
+      {showAddForm && (
+        <AddBandForm bands={bands} onDone={() => setShowAddForm(false)} />
+      )}
 
       {view === "grid" ? (
         <>

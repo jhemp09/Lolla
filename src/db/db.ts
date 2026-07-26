@@ -87,6 +87,18 @@ export async function updateBand(
   await db.bands.update(id, patch);
 }
 
+/** Creates a single band directly (as opposed to importBands' full-lineup replace). */
+export async function addBand(band: Band): Promise<void> {
+  await db.bands.add(band);
+}
+
+/** Removes a single band. Any ratings/schedule rows referencing it become orphaned — every
+ * lookup elsewhere already treats a missing band as "skip this," same as after a CSV
+ * re-import drops a band, so nothing extra needs cleaning up here. */
+export async function deleteBand(id: string): Promise<void> {
+  await db.bands.delete(id);
+}
+
 /** Replaces the stage-distance matrix with an imported one (from CSV import). */
 export async function importStageDistances(distances: StageDistance[]): Promise<void> {
   await db.stageDistances.clear();

@@ -1,12 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useGroupCode } from "../state/useGroup";
 import { useComputedGroupSchedule } from "../state/useGroupSchedule";
 import { openBandDetail } from "../state/useSelectedBand";
 import { usePersistedState } from "../state/usePersistedState";
+import { useIsAdmin } from "../state/useAuth";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
+import { AddBandForm } from "./AddBandForm";
 import { sortByStageOrder } from "../lib/stageOrder";
 
 interface Props {
@@ -17,8 +19,10 @@ interface Props {
 
 export function GroupSchedulePanel({ bands, day, setDay }: Props) {
   const [groupCode] = useGroupCode();
+  const isAdmin = useIsAdmin();
   const days = useComputedGroupSchedule(groupCode, bands);
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-group-schedule-view", "grid");
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
   const totalPicks = useMemo(() => days.reduce((sum, d) => sum + d.bandIds.length, 0), [days]);
@@ -45,20 +49,31 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
         </p>
       </div>
 
-      <div className="tabs" style={{ marginBottom: 10 }}>
-        <button
-          className={`tab-btn${view === "grid" ? " active" : ""}`}
-          onClick={() => setView("grid")}
-        >
-          Grid
-        </button>
-        <button
-          className={`tab-btn${view === "list" ? " active" : ""}`}
-          onClick={() => setView("list")}
-        >
-          List
-        </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div className="tabs">
+          <button
+            className={`tab-btn${view === "grid" ? " active" : ""}`}
+            onClick={() => setView("grid")}
+          >
+            Grid
+          </button>
+          <button
+            className={`tab-btn${view === "list" ? " active" : ""}`}
+            onClick={() => setView("list")}
+          >
+            List
+          </button>
+        </div>
+        {isAdmin && !showAddForm && (
+          <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
+            + Add band
+          </button>
+        )}
       </div>
+
+      {showAddForm && (
+        <AddBandForm bands={bands} onDone={() => setShowAddForm(false)} />
+      )}
 
       {view === "grid" ? (
         <>
