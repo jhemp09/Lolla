@@ -55,14 +55,27 @@ async function runSync() {
   }
 }
 
-/** Call once when the user flips online: syncs immediately. No periodic polling —
- * further syncs happen on local edits (debounced) or navigation (syncNow). */
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") runSync();
+}
+
+/**
+ * Call once when the user flips online: syncs immediately, then again on local edits
+ * (debounced) or navigation (syncNow) — plus whenever the app comes back to the
+ * foreground. That last one matters on a phone: rate something and lock the screen (or
+ * switch apps) within the debounce window and the pending push's timer can get suspended
+ * before it fires, silently stranding that edit until something else happens to trigger
+ * a sync. Catching the moment the app is reopened closes that gap, and doubles as an
+ * immediate pull for whatever a teammate pushed while this device was backgrounded.
+ */
 export function startAutoSync() {
   runSync();
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 }
 
 /** Call when the user flips offline (or on unmount): stops all network activity. */
 export function stopAutoSync() {
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
   if (pushTimer) {
     clearTimeout(pushTimer);
     pushTimer = null;
