@@ -41,14 +41,20 @@ const MAX_SKIP_MINUTES = 15;
  * that fits within MAX_SKIP_MINUTES of slack at each end — leaving i no earlier than
  * MAX_SKIP_MINUTES before it ends, arriving at j no later than MAX_SKIP_MINUTES after it
  * starts. The only thing walking distance affects beyond that is which of several
- * equally-scored schedules to prefer: given a tie, the one with less total walking wins.
+ * equally-scored options to prefer at a given point in the chain: given a tie, the pick
+ * whose path *up to* it was already the shorter walk wins, and only if that's tied too
+ * does the length of this specific final hop settle it. Deliberately not the other way
+ * around — weighing this hop's length first would let a short walk to whatever comes
+ * *after* a tied pick override an obviously-closer option several stops back, which
+ * reads as arbitrary when you're just comparing what's next to what came before it.
  * Modeled as weighted interval scheduling generalized with a stage-transition cost: each
  * rated band is a node, with a directed edge i -> j (i earlier by start time) whenever
- * that window fits the walk. Two DP values propagate together per node: the max score
- * reachable (primary), and the minimum total walking minutes to achieve that score
- * (secondary, tie-break only) — so the result is the highest-scoring schedule for the
- * day, and among schedules tied for highest-scoring, the one that crosses the park
- * least. O(n^2), runs fully offline.
+ * that window fits the walk. Three DP values propagate together per node: the max score
+ * reachable (primary), the winning predecessor's own walk-so-far (secondary tie-break),
+ * and the cumulative walk including this node (tertiary tie-break, and what a later node
+ * inherits as its own predecessor's walk-so-far) — so the result is the highest-scoring
+ * schedule for the day, and at any point where two ways of extending it tie, the one
+ * that was already the shorter walk up to now wins. O(n^2), runs fully offline.
  */
 export function optimizeGroupSchedule(
   bands: Band[],
@@ -85,12 +91,24 @@ function optimizeDay(
     return raw * raw;
   });
   const best = new Array<number>(n).fill(0);
+  // Cumulative walking minutes for the best chain ending at this node — propagates
+  // forward exactly like before, and is what a later node inherits as its predecessor's
+  // "walk so far" (see bestPredWalk below), and what the final day-end comparison uses.
   const bestWalk = new Array<number>(n).fill(0);
+  // The winning predecessor's OWN bestWalk, kept separate from bestWalk[j] itself so a
+  // tie-break can ask "was the path *before* this hop already the better one" ahead of
+  // "is this specific final hop short" instead of collapsing both into one number. Without
+  // this split, two score-tied options converging on the same later node get compared
+  // purely by their last hop into that node — so an obviously-closer option two stops
+  // back can still lose because the *other* option happens to set up a short final hop,
+  // which reads as arbitrary when you're just looking at what's next to what.
+  const bestPredWalk = new Array<number>(n).fill(0);
   const prev = new Array<number>(n).fill(-1);
 
   for (let j = 0; j < n; j++) {
     best[j] = weight[j];
     bestWalk[j] = 0;
+    bestPredWalk[j] = 0;
     for (let i = 0; i < j; i++) {
       // Earliest you can leave i without skipping more than the cap, and latest you can
       // arrive at j without missing more than the cap of its start.
@@ -101,12 +119,16 @@ function optimizeDay(
       if (available < needed) continue; // can't walk it without skipping more than the cap of either
 
       const candidateScore = best[i] + weight[j];
-      const candidateWalk = bestWalk[i] + needed;
+      const predWalk = bestWalk[i];
+      const currentHop = bestWalk[j] - bestPredWalk[j];
       const better =
-        candidateScore > best[j] || (candidateScore === best[j] && candidateWalk < bestWalk[j]);
+        candidateScore > best[j] ||
+        (candidateScore === best[j] &&
+          (predWalk < bestPredWalk[j] || (predWalk === bestPredWalk[j] && needed < currentHop)));
       if (better) {
         best[j] = candidateScore;
-        bestWalk[j] = candidateWalk;
+        bestPredWalk[j] = predWalk;
+        bestWalk[j] = predWalk + needed;
         prev[j] = i;
       }
     }
