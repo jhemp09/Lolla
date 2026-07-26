@@ -49,6 +49,29 @@ export function useUserPreRatings(groupCode: string, userName: string): Map<stri
   return useMemo(() => new Map((rows ?? []).map((r) => [r.bandId, r.preRating])), [rows]);
 }
 
+/** Every group member's pre-festival rating for one band — what actually feeds the
+ * group schedule's scoring, surfaced directly so a "why isn't this winning its slot"
+ * question can be answered by looking, not guessing. Zero-rated/unrated members are
+ * omitted, matching aggregateRatingWeights' own treatment of a 0 as "no opinion." */
+export function useGroupRatingsForBand(
+  groupCode: string,
+  bandId: string,
+): { userName: string; preRating: number }[] {
+  const rows = useLiveQuery(
+    () =>
+      db.ratings
+        .where("groupCode")
+        .equals(groupCode)
+        .filter((r) => r.bandId === bandId && r.preRating > 0)
+        .toArray(),
+    [groupCode, bandId],
+  );
+  return useMemo(
+    () => (rows ?? []).map((r) => ({ userName: r.userName, preRating: r.preRating })).sort((a, b) => a.userName.localeCompare(b.userName)),
+    [rows],
+  );
+}
+
 async function patchRating(
   groupCode: string,
   bandId: string,

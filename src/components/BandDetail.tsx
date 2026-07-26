@@ -3,7 +3,13 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import type { Band, Rating } from "../types";
 import { formatMinutes } from "../types";
-import { setPreRating, setPreNotes, setDuringRating, setDuringNotes } from "../state/useRatings";
+import {
+  setPreRating,
+  setPreNotes,
+  setDuringRating,
+  setDuringNotes,
+  useGroupRatingsForBand,
+} from "../state/useRatings";
 import { useIsScheduled, addToSchedule, removeFromSchedule } from "../state/useSchedule";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
@@ -125,6 +131,8 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
 
   const preRating = rawRating?.preRating ?? 0;
   const duringRating = rawRating?.duringRating ?? 0;
+  const groupRatings = useGroupRatingsForBand(groupCode, band.id);
+  const groupTotal = groupRatings.reduce((sum, r) => sum + r.preRating, 0);
 
   const toggleSchedule = () => {
     if (scheduled) removeFromSchedule(groupCode, band.id, userName);
@@ -198,6 +206,23 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
         onNotesChange={setPreNotesDraft}
         onNotesBlur={() => setPreNotes(groupCode, band.id, userName, preNotesDraft)}
       />
+
+      {groupRatings.length > 0 && (
+        <div className="sync-card">
+          <h2 style={{ fontSize: 14 }}>Group ratings ({groupTotal} total)</h2>
+          <p className="status-text" style={{ marginTop: 4 }}>
+            This total is exactly what the group schedule scores this band on.
+          </p>
+          <div style={{ marginTop: 8 }}>
+            {groupRatings.map((r) => (
+              <div key={r.userName} className="sync-row" style={{ marginTop: 6 }}>
+                <span className="status-text">{r.userName === userName ? "You" : r.userName}</span>
+                <span className="rating-indicator">{r.preRating}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <RatingSection
         title="During the festival"
