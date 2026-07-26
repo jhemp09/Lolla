@@ -259,13 +259,26 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
     });
   }
 
+  const myUserName = getUserName();
+
   await db.transaction("rw", db.ratings, async () => {
     for (const r of remoteRatings) {
       const existing = await db.ratings
         .where("[groupCode+bandId+userName]")
         .equals([r.group_code, r.band_id, r.user_name])
         .first();
-      if (!existing || new Date(r.updated_at) > new Date(existing.updatedAt)) {
+      // The "only if newer" guard exists to protect a not-yet-pushed edit to your OWN
+      // row from being clobbered by a pull that raced ahead of your own push. It has no
+      // business applying to a teammate's row — this device never originates edits to
+      // one of those, so the server is unconditionally authoritative for it. Applying
+      // the guard there anyway meant a single bad local copy of a teammate's rating
+      // (e.g. a leftover from the old duplicate-row bug, or plain clock skew between
+      // devices) could get permanently stuck: every future pull kept losing the "is the
+      // new one actually newer" comparison and silently discarding the real update,
+      // forever, with no error surfaced anywhere.
+      const isOwnRow = r.user_name === myUserName;
+      const shouldApply = !existing || !isOwnRow || new Date(r.updated_at) > new Date(existing.updatedAt);
+      if (shouldApply) {
         const local: Rating = {
           groupCode: r.group_code,
           bandId: r.band_id,
@@ -288,7 +301,9 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
         .where("[groupCode+bandId+userName]")
         .equals([s.group_code, s.band_id, s.user_name])
         .first();
-      if (!existing || new Date(s.added_at) > new Date(existing.addedAt)) {
+      const isOwnRow = s.user_name === myUserName;
+      const shouldApply = !existing || !isOwnRow || new Date(s.added_at) > new Date(existing.addedAt);
+      if (shouldApply) {
         const local: ScheduleEntry = {
           groupCode: s.group_code,
           bandId: s.band_id,
