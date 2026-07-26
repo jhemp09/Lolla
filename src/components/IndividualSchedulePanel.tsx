@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
@@ -14,7 +14,13 @@ import { BandCardHeader } from "./BandCardHeader";
 import { AvoidIcon } from "./AvoidIcon";
 import { sortByStageOrder } from "../lib/stageOrder";
 
-export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
+interface Props {
+  bands: Band[];
+  day: Day;
+  setDay: (day: Day) => void;
+}
+
+export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
   const [myUserName] = useUserName();
   const [groupCode] = useGroupCode();
   const members = useGroupMembers(groupCode);
@@ -23,7 +29,6 @@ export function IndividualSchedulePanel({ bands }: { bands: Band[] }) {
     myUserName,
   );
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-individual-view", "grid");
-  const [day, setDay] = useState<Day>(1);
 
   // The persisted member might belong to a group we've since left, or not exist yet — fall back to self.
   const effectiveMember = members.includes(selectedMember) ? selectedMember : myUserName;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useGroupCode } from "../state/useGroup";
@@ -9,11 +9,16 @@ import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
 import { sortByStageOrder } from "../lib/stageOrder";
 
-export function GroupSchedulePanel({ bands }: { bands: Band[] }) {
+interface Props {
+  bands: Band[];
+  day: Day;
+  setDay: (day: Day) => void;
+}
+
+export function GroupSchedulePanel({ bands, day, setDay }: Props) {
   const [groupCode] = useGroupCode();
   const days = useComputedGroupSchedule(groupCode, bands);
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-group-schedule-view", "grid");
-  const [day, setDay] = useState<Day>(1);
 
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
   const totalPicks = useMemo(() => days.reduce((sum, d) => sum + d.bandIds.length, 0), [days]);
