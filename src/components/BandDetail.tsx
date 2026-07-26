@@ -132,7 +132,9 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
   const preRating = rawRating?.preRating ?? 0;
   const duringRating = rawRating?.duringRating ?? 0;
   const groupRatings = useGroupRatingsForBand(groupCode, band.id);
-  const groupTotal = groupRatings.reduce((sum, r) => sum + r.preRating, 0);
+  const groupAverage = groupRatings.length
+    ? groupRatings.reduce((sum, r) => sum + r.preRating, 0) / groupRatings.length
+    : 0;
 
   const toggleSchedule = () => {
     if (scheduled) removeFromSchedule(groupCode, band.id, userName);
@@ -209,10 +211,13 @@ export function BandDetail({ band, onBack }: { band: Band; onBack: () => void })
 
       {groupRatings.length > 0 && (
         <div className="sync-card">
-          <h2 style={{ fontSize: 14 }}>Group ratings ({groupTotal} total)</h2>
+          <h2 style={{ fontSize: 14 }}>
+            Group ratings ({groupAverage.toFixed(1)} avg, {groupRatings.length} rated)
+          </h2>
           <p className="status-text" style={{ marginTop: 4 }}>
-            The group schedule ranks bands by this total — favoring a band the whole
-            group rates highly over ones that only add up to more.
+            The group schedule ranks bands by this average, not a sum — a new rating
+            blends into the average instead of stacking on top of it, and a band the
+            whole group rates highly is favored over ones that only add up to more.
           </p>
           <div style={{ marginTop: 8 }}>
             {groupRatings.map((r) => (

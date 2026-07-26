@@ -6,14 +6,30 @@ export interface OptimizedDay {
   totalScore: number;
 }
 
-/** Sums each band's ratings across everyone in the group; unrated (0) contributes nothing. */
+/**
+ * Averages each band's ratings across whoever in the group actually rated it; unrated
+ * (0) doesn't count for or against it, and people who never rated it at all aren't
+ * counted as a silent 0 either — a band two people rated carefully (say 2s and 3s) isn't
+ * average-diluted just because a third person hasn't gotten to it yet. A plain sum would
+ * let one person's later, partial pass at rating things — a handful of enthusiastic
+ * scores on top of two people's careful, complete ratings — outweigh what the group as a
+ * whole actually thinks, purely by adding another number on top rather than blending in
+ * with what's already there. Averaging means a new rating on an already-rated band
+ * blends with the existing ones instead of stacking on top of them.
+ */
 export function aggregateRatingWeights(
   ratings: { bandId: string; rating: number }[],
 ): Map<string, number> {
-  const weights = new Map<string, number>();
+  const sums = new Map<string, number>();
+  const counts = new Map<string, number>();
   for (const r of ratings) {
     if (r.rating <= 0) continue;
-    weights.set(r.bandId, (weights.get(r.bandId) ?? 0) + r.rating);
+    sums.set(r.bandId, (sums.get(r.bandId) ?? 0) + r.rating);
+    counts.set(r.bandId, (counts.get(r.bandId) ?? 0) + 1);
+  }
+  const weights = new Map<string, number>();
+  for (const [bandId, sum] of sums) {
+    weights.set(bandId, sum / (counts.get(bandId) ?? 1));
   }
   return weights;
 }
@@ -31,9 +47,9 @@ const MAX_SKIP_MINUTES = 15;
 
 /**
  * Picks, for each day, the sequence of rated bands that maximizes total group rating —
- * where each band's raw group-rating total is squared before it's summed, so one band
- * the whole group loves outweighs a scattering of bands nobody loves quite as much, even
- * when the scattered ones add up to a higher raw total (see the squaring comment in
+ * where each band's average group rating is squared before it's summed, so one band the
+ * whole group loves outweighs a scattering of bands nobody loves quite as much, even
+ * when the scattered ones would add up to more on a raw sum (see the squaring comment in
  * optimizeDay for the worked example). Exact start/end times aren't a hard requirement —
  * arriving a bit late or leaving a bit early is fine — but you can't be two places at
  * once, and a chain only makes sense if you actually see most of each show, not just clip
@@ -78,14 +94,14 @@ function optimizeDay(
   const n = candidates.length;
   if (n === 0) return { day, bandIds: [], totalScore: 0 };
 
-  // Squaring each band's raw group-rating total (rather than using it as-is) means one
+  // Squaring each band's average group rating (rather than using it as-is) means one
   // band the whole group loves outweighs a scattering of bands nobody loves quite as
-  // much, even when the scattered ones add up to more — e.g. a band both people rated 4
-  // (total 8, squared 64) beats two other, unrelated bands totalling 6 and 5 (squared
-  // 36 + 25 = 61) despite 6 + 5 > 8 on a raw sum. A plain sum has no preference between
-  // "one thing everyone loves" and "a pile of things nobody loves quite as much" as long
-  // as the totals match, which routinely traded away a mutual favorite for two
-  // lower-consensus picks that simply happened to fit together and add up higher.
+  // much, even when the raw averages alone would add up to more — e.g. a band both
+  // people rated 4 (avg 4, squared 16) beats two other, unrelated bands averaging 3 and
+  // 2.5 (squared 9 + 6.25 = 15.25) despite 3 + 2.5 > 4 on a raw sum of averages. Plainly
+  // summing has no preference between "one thing everyone loves" and "a pile of things
+  // nobody loves quite as much" as long as the totals match, which routinely traded away
+  // a mutual favorite for two lower-consensus picks that happened to fit together.
   const weight = candidates.map((b) => {
     const raw = ratingWeights.get(b.id) ?? 0;
     return raw * raw;
