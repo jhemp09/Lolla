@@ -7,6 +7,14 @@ export interface OptimizedDay {
 }
 
 /**
+ * A group-schedule pick whose average rating is at or below this is "there because
+ * nothing better fit that slot," not because the group actually wanted to see it — the
+ * UI uses this to show those picks differently rather than implying they're a real
+ * favorite. 2.5 lands right below "I could go either way," the midpoint of the scale.
+ */
+export const LOW_CONSENSUS_THRESHOLD = 2.5;
+
+/**
  * Averages each band's ratings across whoever in the group actually rated it; unrated
  * (0) doesn't count for or against it, and people who never rated it at all aren't
  * counted as a silent 0 either — a band two people rated carefully (say 2s and 3s) isn't

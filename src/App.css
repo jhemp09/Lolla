@@ -468,6 +468,12 @@
   color: #001a33;
 }
 
+.grid-band.low {
+  background: var(--low);
+  border-color: var(--low);
+  color: #1f2124;
+}
+
 .diff-badge {
   display: inline-block;
   font-size: 11px;
@@ -485,6 +491,11 @@
 .diff-badge.deviation {
   background: rgba(71, 191, 255, 0.15);
   color: var(--personal);
+}
+
+.diff-badge.low {
+  background: rgba(156, 163, 175, 0.18);
+  color: var(--low);
 }
 
 .sync-card {

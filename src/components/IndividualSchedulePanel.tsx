@@ -15,6 +15,7 @@ import { BandCardHeader } from "./BandCardHeader";
 import { AddBandForm } from "./AddBandForm";
 import { AvoidIcon } from "./AvoidIcon";
 import { sortByStageOrder } from "../lib/stageOrder";
+import { LOW_CONSENSUS_THRESHOLD } from "../lib/optimizer";
 
 interface Props {
   bands: Band[];
@@ -47,7 +48,7 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
   }, [isSelf, groupCode, myUserName]);
 
   const scheduleEntries = useUserSchedule(groupCode, effectiveMember);
-  const groupDays = useComputedGroupSchedule(groupCode, bands);
+  const { days: groupDays, ratingWeights } = useComputedGroupSchedule(groupCode, bands);
   // Whatever this member rated 1 ("actively want to avoid") — flagged wherever it shows up
   // in their schedule, since a group pick can still be a band they can't stand.
   const avoidBandIds = useAvoidBandIds(groupCode, effectiveMember);
@@ -89,10 +90,15 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
   const highlights = useMemo(() => {
     const map = new Map<string, HighlightCategory>();
     for (const b of displayedBands) {
-      map.set(b.id, groupBandIds.has(b.id) ? "group" : "deviation");
+      if (!groupBandIds.has(b.id)) {
+        map.set(b.id, "deviation");
+        continue;
+      }
+      const avg = ratingWeights.get(b.id) ?? 0;
+      map.set(b.id, avg <= LOW_CONSENSUS_THRESHOLD ? "low" : "group");
     }
     return map;
-  }, [displayedBands, groupBandIds]);
+  }, [displayedBands, groupBandIds, ratingWeights]);
 
   return (
     <div>
@@ -123,6 +129,7 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
 
       <p className="status-text" style={{ margin: "8px 0", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         <span className="diff-badge group">Group schedule</span>
+        <span className="diff-badge low">Low pick</span>
         <span className="diff-badge deviation">Personal pick</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <AvoidIcon style={{ width: 12, height: 12, color: "var(--danger)" }} />
@@ -198,7 +205,11 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
                 <BandCardHeader band={b} right={<span className="badge">{b.stage}</span>} />
                 <div className="band-card-actions">
                   <span className={`diff-badge ${highlights.get(b.id)}`}>
-                    {highlights.get(b.id) === "group" ? "Group schedule" : "Personal pick"}
+                    {highlights.get(b.id) === "group"
+                      ? "Group schedule"
+                      : highlights.get(b.id) === "low"
+                        ? "Low pick"
+                        : "Personal pick"}
                   </span>
                   {isSelf && ownBandIds.has(b.id) && (
                     <button

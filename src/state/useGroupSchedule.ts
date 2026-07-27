@@ -5,6 +5,13 @@ import type { Band } from "../types";
 import { optimizeGroupSchedule, aggregateRatingWeights, type OptimizedDay } from "../lib/optimizer";
 import { buildDistanceLookup } from "../lib/stageDistances";
 
+export interface ComputedGroupSchedule {
+  days: OptimizedDay[];
+  /** Each picked band's average group rating — lets the UI tell a genuine favorite
+   * apart from a pick that's only there because nothing better fit the slot. */
+  ratingWeights: Map<string, number>;
+}
+
 /**
  * The group schedule purely as a function of the group's current ratings and the stage
  * distance matrix — both already sync via Supabase, so every device recomputes the same
@@ -12,7 +19,7 @@ import { buildDistanceLookup } from "../lib/stageDistances";
  * the instant a rating changes locally OR a teammate's rating arrives via a sync pull,
  * since both are just writes to db.ratings that this live query picks up automatically.
  */
-export function useComputedGroupSchedule(groupCode: string, bands: Band[]): OptimizedDay[] {
+export function useComputedGroupSchedule(groupCode: string, bands: Band[]): ComputedGroupSchedule {
   const ratings = useLiveQuery(
     () => db.ratings.where("groupCode").equals(groupCode).toArray(),
     [groupCode],
@@ -24,7 +31,7 @@ export function useComputedGroupSchedule(groupCode: string, bands: Band[]): Opti
       (ratings ?? []).map((r) => ({ bandId: r.bandId, rating: r.preRating })),
     );
     const walkMinutes = buildDistanceLookup(distances ?? []);
-    return optimizeGroupSchedule(bands, weights, walkMinutes);
+    return { days: optimizeGroupSchedule(bands, weights, walkMinutes), ratingWeights: weights };
   }, [ratings, distances, bands]);
 }
 

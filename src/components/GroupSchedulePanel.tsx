@@ -10,6 +10,7 @@ import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
 import { AddBandForm } from "./AddBandForm";
 import { sortByStageOrder } from "../lib/stageOrder";
+import { LOW_CONSENSUS_THRESHOLD } from "../lib/optimizer";
 
 interface Props {
   bands: Band[];
@@ -20,7 +21,7 @@ interface Props {
 export function GroupSchedulePanel({ bands, day, setDay }: Props) {
   const [groupCode] = useGroupCode();
   const isAdmin = useIsAdmin();
-  const days = useComputedGroupSchedule(groupCode, bands);
+  const { days, ratingWeights } = useComputedGroupSchedule(groupCode, bands);
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-group-schedule-view", "grid");
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -35,10 +36,13 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
   const highlights = useMemo(() => {
     const map = new Map<string, HighlightCategory>();
     for (const d of days) {
-      for (const bandId of d.bandIds) map.set(bandId, "group");
+      for (const bandId of d.bandIds) {
+        const avg = ratingWeights.get(bandId) ?? 0;
+        map.set(bandId, avg <= LOW_CONSENSUS_THRESHOLD ? "low" : "group");
+      }
     }
     return map;
-  }, [days]);
+  }, [days, ratingWeights]);
 
   return (
     <div>
@@ -48,6 +52,11 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
           editable, but you can make edits in your individual schedule.
         </p>
       </div>
+
+      <p className="status-text" style={{ margin: "0 0 10px", display: "flex", alignItems: "center", gap: 6 }}>
+        <span className="diff-badge low">Low pick</span>
+        Nothing better fit that slot — not a real favorite.
+      </p>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div className="tabs">
@@ -108,6 +117,11 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
                     onClick={() => openBandDetail(band.id)}
                   >
                     <BandCardHeader band={band} right={<span className="badge">{band.stage}</span>} />
+                    {highlights.get(bandId) === "low" && (
+                      <span className="diff-badge low" style={{ marginTop: 8, display: "inline-block" }}>
+                        Low pick
+                      </span>
+                    )}
                   </div>
                 );
               })}

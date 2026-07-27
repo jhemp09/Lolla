@@ -4,13 +4,15 @@ import { formatMinutes } from "../types";
 import { openBandDetail } from "../state/useSelectedBand";
 import { AvoidIcon } from "./AvoidIcon";
 
-export type HighlightCategory = "group" | "deviation";
+export type HighlightCategory = "group" | "deviation" | "low";
 
 interface Props {
   bands: Band[];
   day: Day;
   stages: string[];
-  /** bandId -> "group" (matches the group schedule) or "deviation" (this schedule's own pick, not in the group's). */
+  /** bandId -> "group" (matches the group schedule), "low" (a group pick that's only
+   * there because nothing better fit the slot), or "deviation" (this schedule's own
+   * pick, not in the group's). */
   highlights?: Map<string, HighlightCategory>;
   /** Band IDs this member rated 1 — flagged with a small "avoid" icon regardless of highlight category. */
   avoidBandIds?: Set<string>;
