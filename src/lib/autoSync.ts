@@ -12,6 +12,7 @@ let status: SyncStatus = "offline";
 let errorMessage = "";
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let syncPromise: Promise<void> | null = null;
+let rerunPending = false;
 const listeners = new Set<() => void>();
 
 function setStatus(next: SyncStatus, message = "") {
@@ -41,14 +42,28 @@ function describeError(e: unknown): string {
  * together, and each used to kick off its own independent runSync() — including its own
  * full delete-then-reinsert of the whole bands table for an admin. Two of those racing
  * meant one's insert could land while the other's delete was still in flight, tripping
- * bands_pkey. If a sync is already running, piggyback on it instead of starting a
- * second one — the in-flight run already reads/writes the current state, so a trigger
- * that fires while it's running has nothing new to contribute over just waiting for it.
+ * bands_pkey. If a sync is already running, a new trigger no longer starts a second,
+ * overlapping one — but it also can't just be ignored: the in-flight run already read
+ * the local database *before* this trigger fired, so if this trigger represents a write
+ * that landed after that read (e.g. a rating saved a moment after an unrelated sync from
+ * another trigger had already started), simply piggybacking on the in-flight promise
+ * would silently drop it — that write would never get pushed until something else
+ * happened to trigger yet another sync later. Instead, mark that a fresh run is needed
+ * and kick off exactly one more the moment the current one finishes, so every write is
+ * guaranteed to eventually ride a sync whose read happened after it, without ever
+ * running two pushes concurrently.
  */
 function runSync(): Promise<void> {
-  if (syncPromise) return syncPromise;
+  if (syncPromise) {
+    rerunPending = true;
+    return syncPromise;
+  }
   syncPromise = runSyncNow().finally(() => {
     syncPromise = null;
+    if (rerunPending) {
+      rerunPending = false;
+      runSync();
+    }
   });
   return syncPromise;
 }
