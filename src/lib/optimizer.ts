@@ -47,35 +47,52 @@ export function aggregateRatingWeights(
 }
 
 /**
- * How much of the higher-rated ("anchor") side of a conflict must be preserved when a
- * lower-or-equally-rated candidate wants to chain next to it — as a fraction of the
- * anchor's own set length, not a flat number of minutes: missing 20 minutes of a
- * 40-minute set is a very different sacrifice than missing 20 minutes of a 2-hour one, so
- * how much can be spared has to scale with the length of the set actually being protected.
- * Two picks the group is equally excited about (rating gap 0) can trade up to half of the
- * anchor's runtime — genuinely worth an overlap or a long walk. The required protection
- * climbs linearly as the candidate falls further behind the anchor's rating, reaching 100%
- * (zero tolerance — not one minute of the anchor's set) at the maximum possible 4-point
- * gap (a 1 next to a 5).
+ * How much of an act's own set length must be preserved when it's on one side of a
+ * chained conflict — as a fraction of that set's own length, not a flat number of
+ * minutes, and as a function of the *rating gap* between the two acts (higher minus
+ * lower). Used for both sides of a pair, just applied in opposite directions:
+ *
+ * - The higher-rated ("anchor") side is protected by this fraction directly — at a
+ *   0-point gap (two picks the group is equally excited about) half its runtime is
+ *   tradeable; at the maximum 4-point gap (a 1 next to a 5) it's fully protected, not
+ *   one minute given up.
+ * - The lower-rated ("candidate") side gets the *complement*, i.e. it's willing to give
+ *   up this same fraction of *itself*: also half at a 0-point gap, and effectively fully
+ *   expendable at a 4-point gap.
+ *
+ * Splitting the budget this way (see allowedSlackMinutes) matters because those are
+ * different questions: trimming a filler's own tail to make a walk work costs the anchor
+ * nothing and is fine at any rating gap, but that's not the same as being willing to trim
+ * the *anchor's* time for a much worse candidate — treating "does the walk fit" as one
+ * combined number against only the anchor's clock (an earlier version of this) couldn't
+ * tell those apart, and ended up rejecting fixable cases where the low-rated side could
+ * have absorbed the whole cost itself.
  *
  * Tiers are processed highest-rated-first (see scheduleDay), so the anchor a candidate is
  * checked against is always rated at least as high as the candidate itself — this
  * difference is never negative in practice, but it's clamped defensively anyway.
  */
-function anchorProtectFraction(ratingGap: number): number {
+function protectFraction(ratingGap: number): number {
   return 0.5 + 0.125 * Math.min(4, Math.max(0, ratingGap));
 }
 
 /**
- * Minutes of slack (see slackNeeded) `candidate` is allowed to cost `anchor`, derived from
- * anchorProtectFraction applied to the anchor's own set length. A clean fit (slackNeeded
- * <= 0) is always fine regardless of this budget — it only ever limits genuine
- * trade-offs, never blocks a candidate that was going to cost the anchor nothing anyway.
+ * Total minutes of slack (see slackNeeded) a chained pair can spend before it's not worth
+ * it, pooled from both sides: up to (1 - protectFraction) of the anchor's own runtime,
+ * plus up to protectFraction of the candidate's own runtime — the lower-rated side is
+ * always willing to give up more of itself than it asks of the anchor. A clean fit
+ * (slackNeeded <= 0) is always fine regardless of this budget either way.
  */
-function allowedSlackMinutes(anchor: Band, anchorRating: number, candidateRating: number): number {
-  const protect = anchorProtectFraction(anchorRating - candidateRating);
+function allowedSlackMinutes(
+  anchor: Band,
+  anchorRating: number,
+  candidate: Band,
+  candidateRating: number,
+): number {
+  const protect = protectFraction(anchorRating - candidateRating);
   const anchorDuration = anchor.endMinutes - anchor.startMinutes;
-  return anchorDuration * (1 - protect);
+  const candidateDuration = candidate.endMinutes - candidate.startMinutes;
+  return anchorDuration * (1 - protect) + candidateDuration * protect;
 }
 
 /**
@@ -95,10 +112,11 @@ function allowedSlackMinutes(anchor: Band, anchorRating: number, candidateRating
  * Exact start/end times aren't a hard requirement — arriving a bit late, leaving a bit
  * early, or even genuinely overlapping a neighbor is fine, up to a point: a candidate is
  * feasible next to whichever bands are already scheduled immediately before and after it
- * as long as the combined walking-time-plus-overlap cost stays within how much of that
- * neighbor's own runtime its rating gap says it can spare (see allowedSlackMinutes). A
- * band you're lukewarm on only clears a small gap next to a favorite; a band you both love
- * just as much can eat meaningfully into that favorite's own set time.
+ * as long as the combined walking-time-plus-overlap cost stays within a budget pooled from
+ * *both* sides' own runtimes — some of it the neighbor's to give, some of it the
+ * candidate's own (see allowedSlackMinutes). A band you're lukewarm on mostly trims its
+ * own edges to fit a small gap; a band you both love just as much can trade real time with
+ * a favorite in either direction.
  *
  * Ties in rating are broken by preferring whichever candidate is the shorter walk from
  * the band already scheduled right before it (not after — see the worked example below)
@@ -205,13 +223,13 @@ function scheduleDay(
       if (
         predecessor &&
         slackNeeded(predecessor.endMinutes, predecessor.stage, candidate.startMinutes, candidate.stage, walkMinutes) >
-          allowedSlackMinutes(predecessor, scoreOf(predecessor), candidateScore)
+          allowedSlackMinutes(predecessor, scoreOf(predecessor), candidate, candidateScore)
       )
         continue;
       if (
         successor &&
         slackNeeded(candidate.endMinutes, candidate.stage, successor.startMinutes, successor.stage, walkMinutes) >
-          allowedSlackMinutes(successor, scoreOf(successor), candidateScore)
+          allowedSlackMinutes(successor, scoreOf(successor), candidate, candidateScore)
       )
         continue;
       committed.splice(insertAt, 0, candidate);
