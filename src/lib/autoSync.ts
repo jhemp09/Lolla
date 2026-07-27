@@ -1,16 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { pushToRemote, pullFromRemote } from "./sync";
+import { startRealtimeSync, stopRealtimeSync } from "./realtime";
 import { getSyncConfig, setLastSync } from "../state/useSyncSettings";
 import { isOnlineMode } from "../state/useOnlineMode";
 import { getGroupCode } from "../state/useGroup";
 
 export type SyncStatus = "offline" | "idle" | "syncing" | "error" | "unconfigured";
 
-const PUSH_DEBOUNCE_MS = 1500;
-
 let status: SyncStatus = "offline";
 let errorMessage = "";
-let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let syncPromise: Promise<void> | null = null;
 let rerunPending = false;
 const listeners = new Set<() => void>();
@@ -38,7 +36,7 @@ function describeError(e: unknown): string {
 }
 
 /**
- * Debounced edits, tab navigation, and the foreground listener can all fire close
+ * Rapid edits, tab navigation, and the foreground listener can all fire close
  * together, and each used to kick off its own independent runSync() — including its own
  * full delete-then-reinsert of the whole bands table for an admin. Two of those racing
  * meant one's insert could land while the other's delete was still in flight, tripping
@@ -76,6 +74,10 @@ async function runSyncNow() {
     setStatus("unconfigured");
     return;
   }
+  // Idempotent and cheap if already subscribed to this group — keeps the realtime
+  // subscription pointed at whatever group is currently active without needing every
+  // group-switch call site to remember to also restart it.
+  startRealtimeSync(groupCode);
   setStatus("syncing");
   try {
     await pushToRemote(groupCode);
@@ -93,13 +95,12 @@ function handleVisibilityChange() {
 }
 
 /**
- * Call once when the user flips online: syncs immediately, then again on local edits
- * (debounced) or navigation (syncNow) — plus whenever the app comes back to the
- * foreground. That last one matters on a phone: rate something and lock the screen (or
- * switch apps) within the debounce window and the pending push's timer can get suspended
- * before it fires, silently stranding that edit until something else happens to trigger
- * a sync. Catching the moment the app is reopened closes that gap, and doubles as an
- * immediate pull for whatever a teammate pushed while this device was backgrounded.
+ * Call once when the user flips online: syncs immediately (which also opens the
+ * realtime subscription — see runSyncNow), then again on local edits, navigation
+ * (syncNow), or whenever the app comes back to the foreground. That last one matters on
+ * a phone: the realtime websocket doesn't survive the OS suspending a backgrounded tab,
+ * so reconnecting (and catching up on anything missed via a fresh pull) the moment the
+ * app is reopened closes that gap.
  */
 export function startAutoSync() {
   runSync();
@@ -109,24 +110,24 @@ export function startAutoSync() {
 /** Call when the user flips offline (or on unmount): stops all network activity. */
 export function stopAutoSync() {
   document.removeEventListener("visibilitychange", handleVisibilityChange);
-  if (pushTimer) {
-    clearTimeout(pushTimer);
-    pushTimer = null;
-  }
+  stopRealtimeSync();
   setStatus("offline");
 }
 
-/** Call after any local ratings/schedule/band write. No-op while offline. */
+/**
+ * Call after any local ratings/schedule/band write. No-op while offline. Pushes right
+ * away rather than debouncing — runSync's own in-flight guard already coalesces bursts
+ * of rapid edits into one trailing sync (see its comment), so a fixed wait-and-batch
+ * delay wasn't buying anything except a window where a write could sit unpushed.
+ */
 export function notifyLocalChange() {
   if (!isOnlineMode()) return;
-  if (pushTimer) clearTimeout(pushTimer);
-  pushTimer = setTimeout(runSync, PUSH_DEBOUNCE_MS);
+  runSync();
 }
 
 /** Call right after switching/joining a group so the new group's data fetches immediately. No-op while offline. */
 export function syncNow() {
   if (!isOnlineMode()) return;
-  if (pushTimer) clearTimeout(pushTimer);
   runSync();
 }
 

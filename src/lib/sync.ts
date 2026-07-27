@@ -11,7 +11,7 @@ function client() {
   return sb;
 }
 
-interface RemoteBand {
+export interface RemoteBand {
   id: string;
   name: string;
   stage: string;
@@ -22,7 +22,7 @@ interface RemoteBand {
   description: string;
 }
 
-interface RemoteRating {
+export interface RemoteRating {
   group_code: string;
   band_id: string;
   user_name: string;
@@ -33,7 +33,7 @@ interface RemoteRating {
   updated_at: string;
 }
 
-interface RemoteSchedule {
+export interface RemoteSchedule {
   group_code: string;
   band_id: string;
   user_name: string;
@@ -205,6 +205,63 @@ export async function pushToRemote(groupCode: string): Promise<void> {
   }
 }
 
+/**
+ * Merges one remote rating row into local storage — shared by the bulk pull below and
+ * the realtime subscription (lib/realtime.ts), which applies rows one at a time as they
+ * arrive rather than in a batch, so both need the exact same merge rule. Caller wraps
+ * this in its own db.transaction.
+ */
+export async function applyRemoteRatingRow(r: RemoteRating, myUserName: string): Promise<void> {
+  const existing = await db.ratings
+    .where("[groupCode+bandId+userName]")
+    .equals([r.group_code, r.band_id, r.user_name])
+    .first();
+  // The "only if newer" guard exists to protect a not-yet-pushed edit to your OWN
+  // row from being clobbered by a pull that raced ahead of your own push. It has no
+  // business applying to a teammate's row — this device never originates edits to
+  // one of those, so the server is unconditionally authoritative for it. Applying
+  // the guard there anyway meant a single bad local copy of a teammate's rating
+  // (e.g. a leftover from the old duplicate-row bug, or plain clock skew between
+  // devices) could get permanently stuck: every future pull kept losing the "is the
+  // new one actually newer" comparison and silently discarding the real update,
+  // forever, with no error surfaced anywhere.
+  const isOwnRow = r.user_name === myUserName;
+  const shouldApply = !existing || !isOwnRow || new Date(r.updated_at) > new Date(existing.updatedAt);
+  if (!shouldApply) return;
+  const local: Rating = {
+    groupCode: r.group_code,
+    bandId: r.band_id,
+    userName: r.user_name,
+    preRating: r.pre_rating,
+    preNotes: r.pre_notes,
+    duringRating: r.during_rating,
+    duringNotes: r.during_notes,
+    updatedAt: r.updated_at,
+  };
+  if (existing) await db.ratings.update(existing.id!, local);
+  else await db.ratings.add(local);
+}
+
+/** Merges one remote schedule row into local storage — see applyRemoteRatingRow. */
+export async function applyRemoteScheduleRow(s: RemoteSchedule, myUserName: string): Promise<void> {
+  const existing = await db.schedule
+    .where("[groupCode+bandId+userName]")
+    .equals([s.group_code, s.band_id, s.user_name])
+    .first();
+  const isOwnRow = s.user_name === myUserName;
+  const shouldApply = !existing || !isOwnRow || new Date(s.added_at) > new Date(existing.addedAt);
+  if (!shouldApply) return;
+  const local: ScheduleEntry = {
+    groupCode: s.group_code,
+    bandId: s.band_id,
+    userName: s.user_name,
+    addedAt: s.added_at,
+    removed: s.removed,
+  };
+  if (existing) await db.schedule.update(existing.id!, local);
+  else await db.schedule.add(local);
+}
+
 /** Pulls the shared project down and merges into local storage (last-write-wins by timestamp). */
 export async function pullFromRemote(groupCode: string): Promise<void> {
   const sb = client();
@@ -262,58 +319,10 @@ export async function pullFromRemote(groupCode: string): Promise<void> {
   const myUserName = getUserName();
 
   await db.transaction("rw", db.ratings, async () => {
-    for (const r of remoteRatings) {
-      const existing = await db.ratings
-        .where("[groupCode+bandId+userName]")
-        .equals([r.group_code, r.band_id, r.user_name])
-        .first();
-      // The "only if newer" guard exists to protect a not-yet-pushed edit to your OWN
-      // row from being clobbered by a pull that raced ahead of your own push. It has no
-      // business applying to a teammate's row — this device never originates edits to
-      // one of those, so the server is unconditionally authoritative for it. Applying
-      // the guard there anyway meant a single bad local copy of a teammate's rating
-      // (e.g. a leftover from the old duplicate-row bug, or plain clock skew between
-      // devices) could get permanently stuck: every future pull kept losing the "is the
-      // new one actually newer" comparison and silently discarding the real update,
-      // forever, with no error surfaced anywhere.
-      const isOwnRow = r.user_name === myUserName;
-      const shouldApply = !existing || !isOwnRow || new Date(r.updated_at) > new Date(existing.updatedAt);
-      if (shouldApply) {
-        const local: Rating = {
-          groupCode: r.group_code,
-          bandId: r.band_id,
-          userName: r.user_name,
-          preRating: r.pre_rating,
-          preNotes: r.pre_notes,
-          duringRating: r.during_rating,
-          duringNotes: r.during_notes,
-          updatedAt: r.updated_at,
-        };
-        if (existing) await db.ratings.update(existing.id!, local);
-        else await db.ratings.add(local);
-      }
-    }
+    for (const r of remoteRatings) await applyRemoteRatingRow(r, myUserName);
   });
 
   await db.transaction("rw", db.schedule, async () => {
-    for (const s of remoteSchedule) {
-      const existing = await db.schedule
-        .where("[groupCode+bandId+userName]")
-        .equals([s.group_code, s.band_id, s.user_name])
-        .first();
-      const isOwnRow = s.user_name === myUserName;
-      const shouldApply = !existing || !isOwnRow || new Date(s.added_at) > new Date(existing.addedAt);
-      if (shouldApply) {
-        const local: ScheduleEntry = {
-          groupCode: s.group_code,
-          bandId: s.band_id,
-          userName: s.user_name,
-          addedAt: s.added_at,
-          removed: s.removed,
-        };
-        if (existing) await db.schedule.update(existing.id!, local);
-        else await db.schedule.add(local);
-      }
-    }
+    for (const s of remoteSchedule) await applyRemoteScheduleRow(s, myUserName);
   });
 }
