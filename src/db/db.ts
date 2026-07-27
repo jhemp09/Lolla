@@ -95,10 +95,32 @@ export async function deleteBand(id: string): Promise<void> {
   await db.bands.delete(id);
 }
 
-/** Replaces the stage-distance matrix with an imported one (from CSV import). */
-export async function importStageDistances(distances: StageDistance[]): Promise<void> {
-  await db.stageDistances.clear();
-  await db.stageDistances.bulkPut(distances);
+/** The stored row for a stage pair, checked under both orderings since the pair is
+ * symmetric but the table's unique index isn't — a pair may have been written down
+ * either way. */
+async function findStageDistance(stageA: string, stageB: string) {
+  return (
+    (await db.stageDistances.where("[stageA+stageB]").equals([stageA, stageB]).first()) ??
+    (await db.stageDistances.where("[stageA+stageB]").equals([stageB, stageA]).first())
+  );
+}
+
+/** Sets (or updates in place) the walk time for a single stage pair, from the Admin
+ * tab's editor. Order-agnostic: updates whichever ordering is already stored rather
+ * than risking a duplicate reversed row. */
+export async function setStageDistance(stageA: string, stageB: string, minutes: number): Promise<void> {
+  const existing = await findStageDistance(stageA, stageB);
+  if (existing) {
+    await db.stageDistances.update(existing.id!, { minutes });
+  } else {
+    await db.stageDistances.add({ stageA, stageB, minutes });
+  }
+}
+
+/** Clears a stage pair's override, reverting it to DEFAULT_WALK_MINUTES. */
+export async function deleteStageDistance(stageA: string, stageB: string): Promise<void> {
+  const existing = await findStageDistance(stageA, stageB);
+  if (existing) await db.stageDistances.delete(existing.id!);
 }
 
 /**
