@@ -29,31 +29,33 @@ at all.
   scan: name, time, stage, and a small read-only ★ indicator showing your
   pre-festival rating once you've set one.
 - **The Schedule tab has two halves.** "Group Schedule" is computed, not
-  editable — it picks, for each day, the set of bands that maximizes total
-  group score from everyone's pre-festival ratings. Each band's score is its
-  *average* rating across whoever rated it (not a sum — a band two people
-  carefully rated isn't diluted just because a third person hasn't gotten to
-  it, and one person's later, partial pass at rating things can't outweigh
-  what the group as a whole already decided), raised to a power before
-  chains are compared — a band the whole group loves outweighs a scattering
-  of bands nobody loves quite as much, even when the scattered ones would
-  add up to more on a raw sum. A rating of 1 ("I will not be in the vicinity
-  of this sound") is a hard veto: if anyone rated a band 1, it's excluded
-  from the group schedule entirely, same as if it were never rated. A pick
-  whose average lands at 2.5 or below shows up gray ("Low pick") instead of
-  gold — it's there because nothing better fit that slot, not because the
-  group actually wanted to see it.
+  editable — it decides, for each day, which bands to attend by considering
+  them highest-rated first and slotting each one in if it fits around
+  whatever higher-rated bands are already committed — never the other way
+  around. A band only ever competes against bands rated the same or higher;
+  once something is committed, nothing lower-rated can bump it or be
+  preferred over it. A band even rated a flat 1 by everyone ("I will not be
+  in the vicinity of this sound") can still end up in the schedule if it's
+  the only thing that fits a genuine gap, but it can never cost the group a
+  band they'd have rated more highly. Each band's score is its *average*
+  rating across whoever rated it (not a sum — a band two people carefully
+  rated isn't diluted just because a third person hasn't gotten to it, and
+  one person's later, partial pass at rating things can't outweigh what the
+  group as a whole already decided). A pick whose average lands at 2.5 or
+  below shows up gray ("Low pick") instead of gold — it's there because
+  nothing better fit that slot, not because the group actually wanted to
+  see it.
   Exact start/end times aren't a hard requirement — arriving up to 15
   minutes late or leaving up to 15 minutes early is fine (a flat cap, not a
   fraction of the set's length, so a 2-hour headliner set doesn't get an
-  hour of slack) — so two picks chain if there's a walk window that fits
-  within that. Walking distance only matters as a tie-break beyond that —
-  given two options tied on score, it prefers whichever pick's path *up to
-  it* was already the shorter walk, never letting a short walk to whatever
-  comes after a tied pick override an obviously-closer option several stops
-  back. Plain algorithm (weighted interval scheduling, generalized with a
-  minimum-attendance window and a walk-distance tie-break), not an LLM call,
-  and there's no generate button — it's a live view that recomputes
+  hour of slack) — so a band only needs a walk window that fits within that
+  to slot in next to whatever's already scheduled around it. Ties in rating
+  are broken by preferring whichever candidate is the shorter walk from the
+  band already scheduled right before it, not the one after — weighing the
+  outgoing hop first would let a short walk to whatever comes *after* a
+  tied pick override an obviously-closer option, which reads as arbitrary
+  when you're just comparing what's next to what came before it. Not an LLM
+  call, and there's no generate button — it's a live view that recomputes
   instantly whenever a rating changes, whether that's you rating a band or
   a teammate's rating arriving via the live Realtime subscription (or the
   next sync, if Realtime isn't set up — see "Setting up shared sync").

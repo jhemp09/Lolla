@@ -25,25 +25,17 @@ export const LOW_CONSENSUS_THRESHOLD = 2.5;
  * with what's already there. Averaging means a new rating on an already-rated band
  * blends with the existing ones instead of stacking on top of them.
  *
- * A rating of 1 ("I hate this, I will not be in the vicinity of this sound") is treated
- * as a hard veto, not a weak positive — if anyone in the group rated a band 1, it's
- * excluded from the group schedule entirely (same weight as never having been rated),
- * rather than being averaged in as a small-but-real number the optimizer could still
- * pick when nothing else fits a slot. This matches how a 1-rating already works
- * everywhere else in the app (the "avoid" warning icon) — the group schedule shouldn't
- * be the one place it's silently ignored.
+ * A rating of 1 is *not* special-cased here — see optimizeGroupSchedule for why a band
+ * anyone hated can still end up in the schedule, but can never cost the group something
+ * they'd have preferred more.
  */
 export function aggregateRatingWeights(
   ratings: { bandId: string; rating: number }[],
 ): Map<string, number> {
-  const avoided = new Set<string>();
-  for (const r of ratings) {
-    if (r.rating === 1) avoided.add(r.bandId);
-  }
   const sums = new Map<string, number>();
   const counts = new Map<string, number>();
   for (const r of ratings) {
-    if (r.rating <= 0 || avoided.has(r.bandId)) continue;
+    if (r.rating <= 0) continue;
     sums.set(r.bandId, (sums.get(r.bandId) ?? 0) + r.rating);
     counts.set(r.bandId, (counts.get(r.bandId) ?? 0) + 1);
   }
@@ -66,39 +58,30 @@ export function aggregateRatingWeights(
 const MAX_SKIP_MINUTES = 15;
 
 /**
- * How hard each band's average group rating is pushed toward rewarding consensus before
- * chain scores are summed — see the comment in optimizeDay for what this trades off and
- * why 4 specifically. Tune up for an even stronger "prefer one mutual favorite" bias, or
- * down toward 1 to go back to a plain sum with no such preference.
- */
-const RATING_EXPONENT = 4;
-
-/**
- * Picks, for each day, the sequence of rated bands that maximizes total group rating —
- * where each band's average group rating is raised to RATING_EXPONENT before it's
- * summed, so one band the whole group loves outweighs a scattering of bands nobody loves
- * quite as much, even when the scattered ones would add up to more on a raw sum (see the
- * worked example in optimizeDay). Exact start/end times aren't a hard requirement —
- * arriving a bit late or leaving a bit early is fine — but you can't be two places at
- * once, and a chain only makes sense if you actually see most of each show, not just clip
- * the edge of it while walking through. So two picks can chain if there's a walk window
- * that fits within MAX_SKIP_MINUTES of slack at each end — leaving i no earlier than
- * MAX_SKIP_MINUTES before it ends, arriving at j no later than MAX_SKIP_MINUTES after it
- * starts. The only thing walking distance affects beyond that is which of several
- * equally-scored options to prefer at a given point in the chain: given a tie, the pick
- * whose path *up to* it was already the shorter walk wins, and only if that's tied too
- * does the length of this specific final hop settle it. Deliberately not the other way
- * around — weighing this hop's length first would let a short walk to whatever comes
- * *after* a tied pick override an obviously-closer option several stops back, which
- * reads as arbitrary when you're just comparing what's next to what came before it.
- * Modeled as weighted interval scheduling generalized with a stage-transition cost: each
- * rated band is a node, with a directed edge i -> j (i earlier by start time) whenever
- * that window fits the walk. Three DP values propagate together per node: the max score
- * reachable (primary), the winning predecessor's own walk-so-far (secondary tie-break),
- * and the cumulative walk including this node (tertiary tie-break, and what a later node
- * inherits as its own predecessor's walk-so-far) — so the result is the highest-scoring
- * schedule for the day, and at any point where two ways of extending it tie, the one
- * that was already the shorter walk up to now wins. O(n^2), runs fully offline.
+ * Picks, for each day, which rated bands to attend by considering them highest-rated
+ * first and slotting each one into the day if it fits around whatever higher-rated bands
+ * are already committed — never the other way around. A band only ever competes against
+ * bands rated the same or higher; once something is committed, nothing lower-rated can
+ * bump it or be preferred over it. A low-rated band (even one someone rated a flat-out
+ * 1) can still end up in the schedule if it's the only thing that fits a genuine gap,
+ * but it can never cost the group a band they'd have rated more highly — by the time a
+ * lower-rated band is even considered, every higher-rated one has already had first
+ * claim on the day. (An earlier version instead maximized total group score across the
+ * whole day, which could trade away a single well-loved band for a combination of
+ * lower-rated ones that happened to add up to more — mathematically "optimal," but not
+ * what anyone actually wants from a group schedule.)
+ *
+ * Exact start/end times aren't a hard requirement — arriving a bit late or leaving a bit
+ * early is fine — but you can't be two places at once, and a slot only makes sense to
+ * fill if you'd actually see most of the show, not just clip the edge of it while
+ * walking through. So a candidate is only feasible next to whichever bands are already
+ * scheduled immediately before and after it if there's a walk window within
+ * MAX_SKIP_MINUTES of slack at each end.
+ *
+ * Ties in rating are broken by preferring whichever candidate is the shorter walk from
+ * the band already scheduled right before it (not after — see the worked example below)
+ * — falling back to start time for a candidate with nothing scheduled before it yet.
+ * Runs fully offline.
  */
 export function optimizeGroupSchedule(
   bands: Band[],
@@ -106,98 +89,89 @@ export function optimizeGroupSchedule(
   walkMinutes: (stageA: string, stageB: string) => number,
 ): OptimizedDay[] {
   const days: Day[] = [1, 2, 3, 4];
-  return days.map((day) => optimizeDay(day, bands, ratingWeights, walkMinutes));
+  return days.map((day) => scheduleDay(day, bands, ratingWeights, walkMinutes));
 }
 
-function optimizeDay(
+/** The already-committed band immediately before `candidate`'s start time, if any. */
+function findPredecessor(committed: Band[], candidate: Band): Band | undefined {
+  let predecessor: Band | undefined;
+  for (const b of committed) {
+    if (b.startMinutes < candidate.startMinutes) predecessor = b;
+    else break;
+  }
+  return predecessor;
+}
+
+/** Where `candidate` would land in `committed` (kept sorted by startMinutes), and its
+ * chronological neighbors there — without actually inserting it. */
+function findInsertion(committed: Band[], candidate: Band) {
+  let insertAt = 0;
+  while (insertAt < committed.length && committed[insertAt].startMinutes < candidate.startMinutes) {
+    insertAt++;
+  }
+  return {
+    insertAt,
+    predecessor: insertAt > 0 ? committed[insertAt - 1] : undefined,
+    successor: insertAt < committed.length ? committed[insertAt] : undefined,
+  };
+}
+
+function fitsWalk(from: Band, to: Band, walkMinutes: (a: string, b: string) => number): boolean {
+  const canLeaveAt = from.endMinutes - MAX_SKIP_MINUTES;
+  const mustArriveBy = to.startMinutes + MAX_SKIP_MINUTES;
+  const needed = walkMinutes(from.stage, to.stage);
+  return mustArriveBy - canLeaveAt >= needed;
+}
+
+function scheduleDay(
   day: Day,
   bands: Band[],
   ratingWeights: Map<string, number>,
   walkMinutes: (stageA: string, stageB: string) => number,
 ): OptimizedDay {
-  const candidates = bands
-    .filter((b) => b.day === day && (ratingWeights.get(b.id) ?? 0) > 0)
-    .sort((a, b) => a.startMinutes - b.startMinutes);
+  const candidates = bands.filter((b) => b.day === day && (ratingWeights.get(b.id) ?? 0) > 0);
 
-  const n = candidates.length;
-  if (n === 0) return { day, bandIds: [], totalScore: 0 };
+  // Highest-rated first; within a tie, whichever is the shorter walk from whatever's
+  // already committed right before it wins that tie (not the band scheduled after it —
+  // weighing the outgoing hop first would let a short walk to whatever comes *after* a
+  // tied pick override an obviously-closer option, which reads as arbitrary when you're
+  // just comparing what's next to what came before it). Nothing is committed yet when
+  // the very first, highest tier is sorted, so every candidate in it falls back to start
+  // time — exactly the same fallback a candidate with nothing scheduled before it uses
+  // at any tier.
+  const committed: Band[] = [];
+  const scoreOf = (b: Band) => ratingWeights.get(b.id) ?? 0;
 
-  // Raising each band's average group rating to a power (rather than using it as-is)
-  // means one band the whole group loves outweighs a scattering of bands nobody loves
-  // quite as much, even when the raw averages alone would add up to more. Plainly
-  // summing has no preference between "one thing everyone loves" and "a pile of things
-  // nobody loves quite as much" as long as the totals match, which routinely traded away
-  // a mutual favorite for two lower-consensus picks that happened to fit together —
-  // squaring alone turned out not to push hard enough: a 4.5-average band (squared
-  // 20.25) still lost to two overlapping 4.0 and 3.0-average bands (squared 16 + 9 =
-  // 25). RATING_EXPONENT = 4 fixes that specific case with real margin (410 vs 337)
-  // while still letting a genuinely much bigger combo win outright (two 5.0s beat one
-  // 2.5 easily) and still letting two comparably-good picks (say 4.0 and 4.0) edge out
-  // one only slightly higher single pick (4.5) — it's a push toward consensus, not an
-  // absolute rule that fewer picks always wins.
-  const weight = candidates.map((b) => {
-    const raw = ratingWeights.get(b.id) ?? 0;
-    return raw ** RATING_EXPONENT;
-  });
-  const best = new Array<number>(n).fill(0);
-  // Cumulative walking minutes for the best chain ending at this node — propagates
-  // forward exactly like before, and is what a later node inherits as its predecessor's
-  // "walk so far" (see bestPredWalk below), and what the final day-end comparison uses.
-  const bestWalk = new Array<number>(n).fill(0);
-  // The winning predecessor's OWN bestWalk, kept separate from bestWalk[j] itself so a
-  // tie-break can ask "was the path *before* this hop already the better one" ahead of
-  // "is this specific final hop short" instead of collapsing both into one number. Without
-  // this split, two score-tied options converging on the same later node get compared
-  // purely by their last hop into that node — so an obviously-closer option two stops
-  // back can still lose because the *other* option happens to set up a short final hop,
-  // which reads as arbitrary when you're just looking at what's next to what.
-  const bestPredWalk = new Array<number>(n).fill(0);
-  const prev = new Array<number>(n).fill(-1);
+  const remaining = [...candidates];
+  while (remaining.length > 0) {
+    let topScore = -Infinity;
+    for (const c of remaining) topScore = Math.max(topScore, scoreOf(c));
+    const tier = remaining.filter((c) => scoreOf(c) === topScore);
+    for (let i = remaining.length - 1; i >= 0; i--) {
+      if (scoreOf(remaining[i]) === topScore) remaining.splice(i, 1);
+    }
 
-  for (let j = 0; j < n; j++) {
-    best[j] = weight[j];
-    bestWalk[j] = 0;
-    bestPredWalk[j] = 0;
-    for (let i = 0; i < j; i++) {
-      // Earliest you can leave i without skipping more than the cap, and latest you can
-      // arrive at j without missing more than the cap of its start.
-      const canLeaveAt = candidates[i].endMinutes - MAX_SKIP_MINUTES;
-      const mustArriveBy = candidates[j].startMinutes + MAX_SKIP_MINUTES;
-      const available = mustArriveBy - canLeaveAt;
-      const needed = walkMinutes(candidates[i].stage, candidates[j].stage);
-      if (available < needed) continue; // can't walk it without skipping more than the cap of either
+    tier.sort((a, b) => {
+      const predA = findPredecessor(committed, a);
+      const predB = findPredecessor(committed, b);
+      const distA = predA ? walkMinutes(predA.stage, a.stage) : 0;
+      const distB = predB ? walkMinutes(predB.stage, b.stage) : 0;
+      return distA !== distB ? distA - distB : a.startMinutes - b.startMinutes;
+    });
 
-      const candidateScore = best[i] + weight[j];
-      const predWalk = bestWalk[i];
-      const currentHop = bestWalk[j] - bestPredWalk[j];
-      const better =
-        candidateScore > best[j] ||
-        (candidateScore === best[j] &&
-          (predWalk < bestPredWalk[j] || (predWalk === bestPredWalk[j] && needed < currentHop)));
-      if (better) {
-        best[j] = candidateScore;
-        bestPredWalk[j] = predWalk;
-        bestWalk[j] = predWalk + needed;
-        prev[j] = i;
-      }
+    for (const candidate of tier) {
+      const { insertAt, predecessor, successor } = findInsertion(committed, candidate);
+      if (predecessor && candidate.startMinutes < predecessor.endMinutes) continue; // overlaps
+      if (successor && candidate.endMinutes > successor.startMinutes) continue; // overlaps
+      if (predecessor && !fitsWalk(predecessor, candidate, walkMinutes)) continue;
+      if (successor && !fitsWalk(candidate, successor, walkMinutes)) continue;
+      committed.splice(insertAt, 0, candidate);
     }
   }
 
-  let bestEnd = 0;
-  for (let j = 1; j < n; j++) {
-    const better = best[j] > best[bestEnd] || (best[j] === best[bestEnd] && bestWalk[j] < bestWalk[bestEnd]);
-    if (better) bestEnd = j;
-  }
-
-  const chain: number[] = [];
-  for (let cur = bestEnd; cur !== -1; cur = prev[cur]) {
-    chain.push(cur);
-  }
-  chain.reverse();
-
   return {
     day,
-    bandIds: chain.map((idx) => candidates[idx].id),
-    totalScore: best[bestEnd],
+    bandIds: committed.map((b) => b.id),
+    totalScore: committed.reduce((sum, b) => sum + scoreOf(b), 0),
   };
 }
