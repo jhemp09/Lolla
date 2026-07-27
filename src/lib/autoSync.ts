@@ -11,6 +11,7 @@ const PUSH_DEBOUNCE_MS = 1500;
 let status: SyncStatus = "offline";
 let errorMessage = "";
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let syncPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 function setStatus(next: SyncStatus, message = "") {
@@ -35,7 +36,24 @@ function describeError(e: unknown): string {
   return e instanceof Error ? e.message : "Sync failed.";
 }
 
-async function runSync() {
+/**
+ * Debounced edits, tab navigation, and the foreground listener can all fire close
+ * together, and each used to kick off its own independent runSync() — including its own
+ * full delete-then-reinsert of the whole bands table for an admin. Two of those racing
+ * meant one's insert could land while the other's delete was still in flight, tripping
+ * bands_pkey. If a sync is already running, piggyback on it instead of starting a
+ * second one — the in-flight run already reads/writes the current state, so a trigger
+ * that fires while it's running has nothing new to contribute over just waiting for it.
+ */
+function runSync(): Promise<void> {
+  if (syncPromise) return syncPromise;
+  syncPromise = runSyncNow().finally(() => {
+    syncPromise = null;
+  });
+  return syncPromise;
+}
+
+async function runSyncNow() {
   const config = getSyncConfig();
   const groupCode = getGroupCode();
   if (!isOnlineMode()) return;
