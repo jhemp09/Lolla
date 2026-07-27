@@ -29,21 +29,36 @@ at all.
   scan: name, time, stage, and a small read-only ★ indicator showing your
   pre-festival rating once you've set one.
 - **The Schedule tab has two halves.** "Group Schedule" is computed, not
-  editable — it picks the set of bands that maximizes total group rating from
-  everyone's pre-festival ratings. Exact start/end times aren't a hard
-  requirement — arriving up to 15 minutes late or leaving up to 15 minutes
-  early is fine (a flat cap, not a fraction of the set's length, so a
-  2-hour headliner set doesn't get an hour of slack) — so two picks chain if
-  there's a walk window that fits within that. Walking distance only
-  matters as a tie-break beyond that — given two schedules with the same
-  total rating, it picks whichever crosses the park less. Plain algorithm
-  (weighted interval scheduling, generalized with a minimum-attendance
-  window and a walk-distance tie-break), not an LLM call, and there's no
-  generate button — it's a live view that recomputes instantly whenever a
-  rating changes, whether that's you rating a band or a teammate's rating
-  arriving on the next sync. Runs fully offline; it just won't reflect
-  anyone else's ratings until you're
-  back online.
+  editable — it picks, for each day, the set of bands that maximizes total
+  group score from everyone's pre-festival ratings. Each band's score is its
+  *average* rating across whoever rated it (not a sum — a band two people
+  carefully rated isn't diluted just because a third person hasn't gotten to
+  it, and one person's later, partial pass at rating things can't outweigh
+  what the group as a whole already decided), raised to a power before
+  chains are compared — a band the whole group loves outweighs a scattering
+  of bands nobody loves quite as much, even when the scattered ones would
+  add up to more on a raw sum. A rating of 1 ("I will not be in the vicinity
+  of this sound") is a hard veto: if anyone rated a band 1, it's excluded
+  from the group schedule entirely, same as if it were never rated. A pick
+  whose average lands at 2.5 or below shows up gray ("Low pick") instead of
+  gold — it's there because nothing better fit that slot, not because the
+  group actually wanted to see it.
+  Exact start/end times aren't a hard requirement — arriving up to 15
+  minutes late or leaving up to 15 minutes early is fine (a flat cap, not a
+  fraction of the set's length, so a 2-hour headliner set doesn't get an
+  hour of slack) — so two picks chain if there's a walk window that fits
+  within that. Walking distance only matters as a tie-break beyond that —
+  given two options tied on score, it prefers whichever pick's path *up to
+  it* was already the shorter walk, never letting a short walk to whatever
+  comes after a tied pick override an obviously-closer option several stops
+  back. Plain algorithm (weighted interval scheduling, generalized with a
+  minimum-attendance window and a walk-distance tie-break), not an LLM call,
+  and there's no generate button — it's a live view that recomputes
+  instantly whenever a rating changes, whether that's you rating a band or
+  a teammate's rating arriving via the live Realtime subscription (or the
+  next sync, if Realtime isn't set up — see "Setting up shared sync").
+  Runs fully offline; it just won't reflect anyone else's ratings until
+  you're back online.
   "Individual Schedule" always shows the group schedule as a base layer (gold)
   plus whatever you've personally added on top (blue) — no separate step
   needed to see the group's plan alongside your own. Rating a band "I cannot
@@ -56,13 +71,15 @@ at all.
   schedule the same way. Both halves, and both other members' schedules,
   support List and Grid views.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
-  free tier). Flip the toggle online and your ratings/schedule/lineup sync with
-  the group — a debounced push after every local change, plus a pull whenever
-  you navigate between tabs (Bands/Schedule/Sync/Admin) or first load the app.
-  There's no background polling, so the app never refreshes out from under you
-  mid-page; switch tabs (or pull to reload the page) to pick up anyone else's
-  changes. Flip the toggle off and everything stays local until you flip it
-  back on.
+  free tier). Flip the toggle online and your ratings/schedule/lineup push to
+  the group immediately on every local change, and a teammate's changes
+  arrive back the same way — a live Realtime subscription pushes their edit
+  to your device the instant it lands on the server, no polling or navigating
+  required. A trigger-based pull (on tab navigation, first load, or the app
+  returning to the foreground) runs alongside it as a fallback, covering the
+  brief gap before the subscription connects and self-healing if the
+  websocket drops. Flip the toggle off and everything stays local until you
+  flip it back on.
 - **Supabase credentials are baked in at build time**, not entered by end users
   — see "Setting up shared sync" below. Everyone in your group just sees a
   toggle, never a URL or API key.
@@ -111,16 +128,22 @@ in that project.
    default — skip this and sync will silently fail. (Supabase reorganizes this
    dashboard periodically; if it's not there, search Project Settings for
    "Exposed schemas" or "Data API".)
-3. **Required**: go to Authentication → Providers → Email, and turn **off**
+3. **Required for instant cross-device updates**: in the SQL Editor, run
+   `alter publication supabase_realtime add table lolla.ratings, lolla.schedule;`
+   — this is what lets a teammate's rating reach your device the moment it's
+   saved. Skipping this doesn't break sync entirely (the trigger-based
+   push/pull fallback still works), but updates only arrive when something
+   else happens to trigger a pull instead of instantly.
+4. **Required**: go to Authentication → Providers → Email, and turn **off**
    "Confirm email." The app signs people up with a synthetic address
    (`username@lolla.internal`) since there's no real email step — nobody can
    click a confirmation link that goes to an inbox that doesn't exist, so
    leaving this on means every sign-up gets stuck unconfirmed and can never log in.
-4. Grab the project's URL and key from Settings → API Keys. Use the
+5. Grab the project's URL and key from Settings → API Keys. Use the
    **Publishable key** (`sb_publishable_...`) if your project has one, or the
    legacy **anon public** key (`eyJ...`) if it doesn't — either works, they're
    the same public-safe role under different names.
-5. Set them as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — either in
+6. Set them as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` — either in
    `.env.local` for local dev, or as Environment Variables in your Vercel/Netlify
    project settings for the deployed build. These are compiled into the app;
    your group never sees or types them, they just sign up with a username/password.

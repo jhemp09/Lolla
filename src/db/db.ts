@@ -1,12 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import type {
-  Band,
-  Rating,
-  ScheduleEntry,
-  SyncMeta,
-  StageDistance,
-  GroupScheduleEntry,
-} from "../types";
+import type { Band, Rating, ScheduleEntry, SyncMeta, StageDistance } from "../types";
 import { getGroupCode, generateGroupCode, setGroupCode } from "../state/useGroup";
 
 export class LollaDB extends Dexie {
@@ -15,7 +8,6 @@ export class LollaDB extends Dexie {
   schedule!: Table<ScheduleEntry, number>;
   meta!: Table<SyncMeta, string>;
   stageDistances!: Table<StageDistance, number>;
-  groupSchedule!: Table<GroupScheduleEntry, number>;
 
   constructor() {
     super("lolla-db");
@@ -68,6 +60,10 @@ export class LollaDB extends Dexie {
             delete r.notes;
           });
       });
+    // The group schedule was never actually read from or written to this table — it's
+    // computed live from ratings + stage distances instead (see useComputedGroupSchedule)
+    // — so it sat empty since v2. Drop it rather than keep migrating a table nothing uses.
+    this.version(4).stores({ groupSchedule: null });
   }
 }
 

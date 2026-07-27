@@ -11,7 +11,7 @@ function client() {
   return sb;
 }
 
-export interface RemoteBand {
+interface RemoteBand {
   id: string;
   name: string;
   stage: string;

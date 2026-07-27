@@ -43,16 +43,6 @@ export interface StageDistance {
   minutes: number;
 }
 
-/** One pick in a computed group itinerary for a given day, in attendance order. */
-export interface GroupScheduleEntry {
-  id?: number;
-  groupCode: string;
-  day: Day;
-  order: number;
-  bandId: string;
-  generatedAt: string; // ISO timestamp, same for every row from one generation run
-}
-
 export interface SyncMeta {
   key: string;
   value: string;
