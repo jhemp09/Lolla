@@ -6,6 +6,7 @@ import { importRatings } from "../state/useRatings";
 import { parseBandsCsv, parseRatingsCsv } from "../lib/csv";
 import { useShowStageDistances, openStageDistances, closeStageDistances } from "../state/useStageDistancesPage";
 import { StageDistancesPage } from "../components/StageDistancesPage";
+import { downloadDebugExport } from "../lib/debugExport";
 
 export function AdminPage() {
   const [groupCode] = useGroupCode();
@@ -50,6 +51,21 @@ export function AdminPage() {
 
   return (
     <div className="main">
+      <div className="sync-card">
+        <h2 style={{ fontSize: 16 }}>Debug export</h2>
+        <p className="status-text" style={{ marginTop: 6 }}>
+          Downloads every band, rating, and stage distance the group schedule optimizer
+          reads, plus the exact schedule it currently computes, as one JSON file — hand
+          this off when a scheduling result looks wrong instead of reading times and
+          ratings off the screen by hand.
+        </p>
+        <div className="sync-row">
+          <button className="primary-btn" onClick={() => downloadDebugExport(groupCode)}>
+            Export debug data
+          </button>
+        </div>
+      </div>
+
       <div className="sync-card">
         <h2 style={{ fontSize: 16 }}>Import your real lineup</h2>
         <p className="status-text" style={{ marginTop: 6 }}>
