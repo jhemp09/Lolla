@@ -45,11 +45,15 @@ at all.
   below shows up gray ("Low pick") instead of gold — it's there because
   nothing better fit that slot, not because the group actually wanted to
   see it.
-  Exact start/end times aren't a hard requirement — arriving up to 15
-  minutes late or leaving up to 15 minutes early is fine (a flat cap, not a
-  fraction of the set's length, so a 2-hour headliner set doesn't get an
-  hour of slack) — so a band only needs a walk window that fits within that
-  to slot in next to whatever's already scheduled around it. Ties in rating
+  Exact start/end times aren't a hard requirement — arriving late, leaving
+  early, or even genuinely overlapping a neighboring pick is fine, up to a
+  point that scales with how much the group wants to see it: a band rated
+  around 2 or below only gets the old flat 15 minutes of combined slack
+  (enough to fill a genuine small gap), but a band both highly rated *and*
+  chained next to another highly-rated pick can justify trading real time
+  away from either set — two acts you're both excited about are worth
+  some overlap; a middling one isn't worth walking across the park for,
+  let alone cutting into a favorite. Ties in rating
   are broken by preferring whichever candidate is the shorter walk from the
   band already scheduled right before it, not the one after — weighing the
   outgoing hop first would let a short walk to whatever comes *after* a
