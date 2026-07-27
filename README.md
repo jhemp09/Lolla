@@ -97,7 +97,11 @@ at all.
   admin" below for how to designate that account. Everyone else can still
   rate bands, build their schedule, and view the group's — this only affects
   who can import files. Enforced on the server (Postgres row-level security),
-  not just hidden in the UI.
+  not just hidden in the UI. The Admin tab also has a **debug export** button
+  that downloads every band, rating, and stage distance the optimizer reads,
+  plus the schedule it currently computes, as one JSON file — useful for
+  reporting a scheduling result that looks wrong without transcribing times
+  and ratings by hand.
 
 ## Local development
 
@@ -106,6 +110,10 @@ npm install
 cp .env.example .env.local   # fill in your Supabase project's URL + anon key
 npm run dev
 ```
+
+`npm test` runs the optimizer's regression suite (`src/lib/optimizer.test.ts`) — every
+scheduling edge case that's come up gets a permanent test case there, so a future change
+can't quietly reintroduce a bug that was already fixed.
 
 Without `.env.local`, the app still runs fine — the Sync tab just shows the
 toggle as disabled with a "not configured" note.
