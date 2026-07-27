@@ -47,15 +47,25 @@ export function aggregateRatingWeights(
 }
 
 /**
- * Maximum minutes of a set you're allowed to miss at either end — arriving this late, or
- * leaving this early — for it to still count as genuinely attended when chained to a
- * neighbor. Deliberately a flat cap, not a fraction of the show's own length: a fraction
- * (e.g. "half") is forgiving in exactly the wrong direction — a 45-minute set only allows
- * skipping ~22 minutes, but a 2-hour headliner set would allow skipping a full hour, which
- * isn't "arriving a bit late," it's skipping most of the set. A flat cap scales the right
- * way regardless of how long the set runs.
+ * Minutes of combined slack a candidate's own rating "buys" when chaining next to an
+ * already-committed neighbor. This single number covers both walking time that eats into
+ * either show *and*, if the two shows overlap outright, the overlap itself — a negative
+ * gap just adds to what's needed, so "the walk barely fits" and "the sets literally
+ * overlap by ten minutes" are the same kind of cost against the same budget, not two
+ * separate rules. A higher-rated candidate can justify sacrificing more of its own or its
+ * neighbor's set: two acts you're genuinely excited about (a 4.0 next to a 4.5, say) are
+ * worth trading real time between, but a 4.5 next to a 2 isn't worth walking across the
+ * park for, let alone overlapping. 15 minutes at rating <=2 keeps the old flat-cap
+ * tolerance for filling a genuine small gap with a middling filler; it climbs from there.
+ *
+ * Tiers are processed highest-rated-first (see scheduleDay), so whatever neighbor a
+ * candidate is being checked against is always rated at least as high as the candidate
+ * itself — keying the budget on the candidate's own rating alone already reflects the
+ * weaker side of the pair, with no need to separately weigh the neighbor's rating too.
  */
-const MAX_SKIP_MINUTES = 15;
+function skipBudgetMinutes(rating: number): number {
+  return 15 + 15 * Math.max(0, rating - 2);
+}
 
 /**
  * Picks, for each day, which rated bands to attend by considering them highest-rated
@@ -71,12 +81,13 @@ const MAX_SKIP_MINUTES = 15;
  * lower-rated ones that happened to add up to more — mathematically "optimal," but not
  * what anyone actually wants from a group schedule.)
  *
- * Exact start/end times aren't a hard requirement — arriving a bit late or leaving a bit
- * early is fine — but you can't be two places at once, and a slot only makes sense to
- * fill if you'd actually see most of the show, not just clip the edge of it while
- * walking through. So a candidate is only feasible next to whichever bands are already
- * scheduled immediately before and after it if there's a walk window within
- * MAX_SKIP_MINUTES of slack at each end.
+ * Exact start/end times aren't a hard requirement — arriving a bit late, leaving a bit
+ * early, or even genuinely overlapping a neighbor is fine, up to a point: a candidate is
+ * feasible next to whichever bands are already scheduled immediately before and after it
+ * as long as the combined walking-time-plus-overlap cost stays within that candidate's own
+ * rating-scaled slack budget (see skipBudgetMinutes). A band you're lukewarm on only
+ * clears a small gap; a band you both love can eat meaningfully into a neighbor you also
+ * both love.
  *
  * Ties in rating are broken by preferring whichever candidate is the shorter walk from
  * the band already scheduled right before it (not after — see the worked example below)
@@ -116,11 +127,21 @@ function findInsertion(committed: Band[], candidate: Band) {
   };
 }
 
-function fitsWalk(from: Band, to: Band, walkMinutes: (a: string, b: string) => number): boolean {
-  const canLeaveAt = from.endMinutes - MAX_SKIP_MINUTES;
-  const mustArriveBy = to.startMinutes + MAX_SKIP_MINUTES;
-  const needed = walkMinutes(from.stage, to.stage);
-  return mustArriveBy - canLeaveAt >= needed;
+/**
+ * Minutes of slack it'd take to chain `from` (ending at `fromEnd`, on `fromStage`) into
+ * `to` (starting at `toStart`, on `toStage`) — the walk time minus whatever natural gap
+ * already exists between them. Zero or negative means the gap already covers the walk, no
+ * sacrifice needed; positive — and growing the more the two actually overlap in time —
+ * means that much combined "arrive late to `to` / leave `from` early / both" is required.
+ */
+function slackNeeded(
+  fromEnd: number,
+  fromStage: string,
+  toStart: number,
+  toStage: string,
+  walkMinutes: (a: string, b: string) => number,
+): number {
+  return walkMinutes(fromStage, toStage) - (toStart - fromEnd);
 }
 
 function scheduleDay(
@@ -161,10 +182,19 @@ function scheduleDay(
 
     for (const candidate of tier) {
       const { insertAt, predecessor, successor } = findInsertion(committed, candidate);
-      if (predecessor && candidate.startMinutes < predecessor.endMinutes) continue; // overlaps
-      if (successor && candidate.endMinutes > successor.startMinutes) continue; // overlaps
-      if (predecessor && !fitsWalk(predecessor, candidate, walkMinutes)) continue;
-      if (successor && !fitsWalk(candidate, successor, walkMinutes)) continue;
+      const budget = skipBudgetMinutes(scoreOf(candidate));
+      if (
+        predecessor &&
+        slackNeeded(predecessor.endMinutes, predecessor.stage, candidate.startMinutes, candidate.stage, walkMinutes) >
+          budget
+      )
+        continue;
+      if (
+        successor &&
+        slackNeeded(candidate.endMinutes, candidate.stage, successor.startMinutes, successor.stage, walkMinutes) >
+          budget
+      )
+        continue;
       committed.splice(insertAt, 0, candidate);
     }
   }
