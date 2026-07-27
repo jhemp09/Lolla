@@ -5,6 +5,7 @@ import { useGroupCode } from "./state/useGroup";
 import { useOnlineMode } from "./state/useOnlineMode";
 import { useSession, useIsAdmin } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
+import { closeStageDistances } from "./state/useStageDistancesPage";
 import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
 import { startAutoSync, stopAutoSync, syncNow } from "./lib/autoSync";
@@ -32,6 +33,7 @@ function App() {
   // piece of state from the active tab, and only "‹ Back" ever cleared it.
   function goToTab(next: typeof tab) {
     closeBandDetail();
+    closeStageDistances();
     setTab(next);
     syncNow();
   }

@@ -1,16 +1,17 @@
 import { useRef } from "react";
 import { useGroupCode } from "../state/useGroup";
 import { notifyLocalChange } from "../lib/autoSync";
-import { importBands, importStageDistances } from "../db/db";
+import { importBands } from "../db/db";
 import { importRatings } from "../state/useRatings";
-import { parseBandsCsv, parseStageDistancesCsv, parseRatingsCsv } from "../lib/csv";
-import { DEFAULT_WALK_MINUTES } from "../lib/stageDistances";
+import { parseBandsCsv, parseRatingsCsv } from "../lib/csv";
+import { useShowStageDistances, openStageDistances, closeStageDistances } from "../state/useStageDistancesPage";
+import { StageDistancesPage } from "../components/StageDistancesPage";
 
 export function AdminPage() {
   const [groupCode] = useGroupCode();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const distancesInputRef = useRef<HTMLInputElement>(null);
   const ratingsInputRef = useRef<HTMLInputElement>(null);
+  const showStageDistances = useShowStageDistances();
 
   const doImport = async (file: File) => {
     try {
@@ -21,18 +22,6 @@ export function AdminPage() {
       notifyLocalChange();
     } catch {
       alert("Couldn't import that file — check it has name, stage, day, start, end columns.");
-    }
-  };
-
-  const doImportDistances = async (file: File) => {
-    try {
-      const text = await file.text();
-      const distances = parseStageDistancesCsv(text);
-      if (distances.length === 0) throw new Error("No rows found in that file.");
-      await importStageDistances(distances);
-      notifyLocalChange();
-    } catch {
-      alert("Couldn't import that file — check it has stage_a, stage_b, minutes columns.");
     }
   };
 
@@ -54,6 +43,10 @@ export function AdminPage() {
       alert("Couldn't import that file — check it has band, user, pre_rating columns.");
     }
   };
+
+  if (showStageDistances) {
+    return <StageDistancesPage onBack={closeStageDistances} />;
+  }
 
   return (
     <div className="main">
@@ -85,26 +78,12 @@ export function AdminPage() {
       <div className="sync-card">
         <h2 style={{ fontSize: 16 }}>Stage walking distances</h2>
         <p className="status-text" style={{ marginTop: 6 }}>
-          Used by the group schedule optimizer to avoid back-to-back picks you can't
-          actually walk between in time. Import a CSV with columns: stage_a, stage_b,
-          minutes (one row per pair — order doesn't matter). Until you do, the
-          optimizer assumes a {DEFAULT_WALK_MINUTES}-minute walk between any two
-          different stages.
+          Used by the group schedule optimizer to break ties between otherwise
+          equally-rated picks.
         </p>
-        <input
-          ref={distancesInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) doImportDistances(file);
-            e.target.value = "";
-          }}
-        />
         <div className="sync-row">
-          <button className="primary-btn" onClick={() => distancesInputRef.current?.click()}>
-            Import CSV
+          <button className="primary-btn" onClick={openStageDistances}>
+            Edit stage distances
           </button>
         </div>
       </div>

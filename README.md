@@ -195,7 +195,7 @@ description` (day is 1-4, start/end are `HH:MM` 24h or `H:MM AM/PM`), then use
 automatically (as a full replace, not merged with whatever was there before)
 so the rest of the group picks it up on their next pull.
 
-## Importing real stage-to-stage walking times
+## Editing real stage-to-stage walking times
 
 *Admin only* — Admin tab.
 
@@ -203,8 +203,9 @@ The group schedule optimizer uses this to break ties between otherwise
 equally-rated schedules — it doesn't gate which picks can chain together (see
 above), just which of several equally-good options crosses the park least.
 Until you provide real numbers it assumes a flat 12-minute walk between any
-two different stages. Import a CSV with columns `stage_a, stage_b, minutes`
-(one row per pair, order doesn't matter) via the Admin tab.
+two different stages. Tap **Edit stage distances** on the Admin tab to open a
+page listing every pair of stages in the current lineup, each with an editable
+minutes field — leave one blank to fall back to the 12-minute default.
 
 ## Bulk-importing pre-festival ratings
 
