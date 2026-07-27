@@ -47,24 +47,35 @@ export function aggregateRatingWeights(
 }
 
 /**
- * Minutes of combined slack a candidate's own rating "buys" when chaining next to an
- * already-committed neighbor. This single number covers both walking time that eats into
- * either show *and*, if the two shows overlap outright, the overlap itself — a negative
- * gap just adds to what's needed, so "the walk barely fits" and "the sets literally
- * overlap by ten minutes" are the same kind of cost against the same budget, not two
- * separate rules. A higher-rated candidate can justify sacrificing more of its own or its
- * neighbor's set: two acts you're genuinely excited about (a 4.0 next to a 4.5, say) are
- * worth trading real time between, but a 4.5 next to a 2 isn't worth walking across the
- * park for, let alone overlapping. 15 minutes at rating <=2 keeps the old flat-cap
- * tolerance for filling a genuine small gap with a middling filler; it climbs from there.
+ * How much of the higher-rated ("anchor") side of a conflict must be preserved when a
+ * lower-or-equally-rated candidate wants to chain next to it — as a fraction of the
+ * anchor's own set length, not a flat number of minutes: missing 20 minutes of a
+ * 40-minute set is a very different sacrifice than missing 20 minutes of a 2-hour one, so
+ * how much can be spared has to scale with the length of the set actually being protected.
+ * Two picks the group is equally excited about (rating gap 0) can trade up to half of the
+ * anchor's runtime — genuinely worth an overlap or a long walk. The required protection
+ * climbs linearly as the candidate falls further behind the anchor's rating, reaching 100%
+ * (zero tolerance — not one minute of the anchor's set) at the maximum possible 4-point
+ * gap (a 1 next to a 5).
  *
- * Tiers are processed highest-rated-first (see scheduleDay), so whatever neighbor a
- * candidate is being checked against is always rated at least as high as the candidate
- * itself — keying the budget on the candidate's own rating alone already reflects the
- * weaker side of the pair, with no need to separately weigh the neighbor's rating too.
+ * Tiers are processed highest-rated-first (see scheduleDay), so the anchor a candidate is
+ * checked against is always rated at least as high as the candidate itself — this
+ * difference is never negative in practice, but it's clamped defensively anyway.
  */
-function skipBudgetMinutes(rating: number): number {
-  return 15 + 15 * Math.max(0, rating - 2);
+function anchorProtectFraction(ratingGap: number): number {
+  return 0.5 + 0.125 * Math.min(4, Math.max(0, ratingGap));
+}
+
+/**
+ * Minutes of slack (see slackNeeded) `candidate` is allowed to cost `anchor`, derived from
+ * anchorProtectFraction applied to the anchor's own set length. A clean fit (slackNeeded
+ * <= 0) is always fine regardless of this budget — it only ever limits genuine
+ * trade-offs, never blocks a candidate that was going to cost the anchor nothing anyway.
+ */
+function allowedSlackMinutes(anchor: Band, anchorRating: number, candidateRating: number): number {
+  const protect = anchorProtectFraction(anchorRating - candidateRating);
+  const anchorDuration = anchor.endMinutes - anchor.startMinutes;
+  return anchorDuration * (1 - protect);
 }
 
 /**
@@ -84,10 +95,10 @@ function skipBudgetMinutes(rating: number): number {
  * Exact start/end times aren't a hard requirement — arriving a bit late, leaving a bit
  * early, or even genuinely overlapping a neighbor is fine, up to a point: a candidate is
  * feasible next to whichever bands are already scheduled immediately before and after it
- * as long as the combined walking-time-plus-overlap cost stays within that candidate's own
- * rating-scaled slack budget (see skipBudgetMinutes). A band you're lukewarm on only
- * clears a small gap; a band you both love can eat meaningfully into a neighbor you also
- * both love.
+ * as long as the combined walking-time-plus-overlap cost stays within how much of that
+ * neighbor's own runtime its rating gap says it can spare (see allowedSlackMinutes). A
+ * band you're lukewarm on only clears a small gap next to a favorite; a band you both love
+ * just as much can eat meaningfully into that favorite's own set time.
  *
  * Ties in rating are broken by preferring whichever candidate is the shorter walk from
  * the band already scheduled right before it (not after — see the worked example below)
@@ -157,9 +168,17 @@ function scheduleDay(
   // weighing the outgoing hop first would let a short walk to whatever comes *after* a
   // tied pick override an obviously-closer option, which reads as arbitrary when you're
   // just comparing what's next to what came before it). Nothing is committed yet when
-  // the very first, highest tier is sorted, so every candidate in it falls back to start
+  // the very first, highest tier is ranked, so every candidate in it falls back to start
   // time — exactly the same fallback a candidate with nothing scheduled before it uses
   // at any tier.
+  //
+  // Re-ranked one pick at a time rather than sorted once up front: when several
+  // same-rated bands are all candidates for the same tier (routine whenever more than
+  // one thing shares the top rating), an earlier pick in *this* tier can itself become
+  // the predecessor the rest are being measured against — a one-shot sort can't see
+  // that, since nothing in the tier has been committed yet at sort time, so every
+  // same-tier candidate would wrongly look predecessor-less and fall back to start time
+  // regardless of which is actually the shorter walk.
   const committed: Band[] = [];
   const scoreOf = (b: Band) => ratingWeights.get(b.id) ?? 0;
 
@@ -172,27 +191,27 @@ function scheduleDay(
       if (scoreOf(remaining[i]) === topScore) remaining.splice(i, 1);
     }
 
-    tier.sort((a, b) => {
-      const predA = findPredecessor(committed, a);
-      const predB = findPredecessor(committed, b);
-      const distA = predA ? walkMinutes(predA.stage, a.stage) : 0;
-      const distB = predB ? walkMinutes(predB.stage, b.stage) : 0;
-      return distA !== distB ? distA - distB : a.startMinutes - b.startMinutes;
-    });
-
-    for (const candidate of tier) {
+    while (tier.length > 0) {
+      tier.sort((a, b) => {
+        const predA = findPredecessor(committed, a);
+        const predB = findPredecessor(committed, b);
+        const distA = predA ? walkMinutes(predA.stage, a.stage) : 0;
+        const distB = predB ? walkMinutes(predB.stage, b.stage) : 0;
+        return distA !== distB ? distA - distB : a.startMinutes - b.startMinutes;
+      });
+      const candidate = tier.shift()!;
       const { insertAt, predecessor, successor } = findInsertion(committed, candidate);
-      const budget = skipBudgetMinutes(scoreOf(candidate));
+      const candidateScore = scoreOf(candidate);
       if (
         predecessor &&
         slackNeeded(predecessor.endMinutes, predecessor.stage, candidate.startMinutes, candidate.stage, walkMinutes) >
-          budget
+          allowedSlackMinutes(predecessor, scoreOf(predecessor), candidateScore)
       )
         continue;
       if (
         successor &&
         slackNeeded(candidate.endMinutes, candidate.stage, successor.startMinutes, successor.stage, walkMinutes) >
-          budget
+          allowedSlackMinutes(successor, scoreOf(successor), candidateScore)
       )
         continue;
       committed.splice(insertAt, 0, candidate);

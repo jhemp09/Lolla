@@ -47,13 +47,14 @@ at all.
   see it.
   Exact start/end times aren't a hard requirement — arriving late, leaving
   early, or even genuinely overlapping a neighboring pick is fine, up to a
-  point that scales with how much the group wants to see it: a band rated
-  around 2 or below only gets the old flat 15 minutes of combined slack
-  (enough to fill a genuine small gap), but a band both highly rated *and*
-  chained next to another highly-rated pick can justify trading real time
-  away from either set — two acts you're both excited about are worth
-  some overlap; a middling one isn't worth walking across the park for,
-  let alone cutting into a favorite. Ties in rating
+  point measured as a share of *that neighbor's own set length*, not a flat
+  number of minutes (missing 20 minutes of a 40-minute set is a very
+  different sacrifice than missing 20 minutes of a 2-hour one). Two picks
+  the group is equally excited about can trade up to half of either set's
+  runtime — genuinely worth an overlap or a long walk — and that tolerance
+  shrinks the further apart their ratings are, reaching zero (not one
+  minute of the better pick's set) once the gap hits 4 points, e.g. a 1
+  next to a 5. Ties in rating
   are broken by preferring whichever candidate is the shorter walk from the
   band already scheduled right before it, not the one after — weighing the
   outgoing hop first would let a short walk to whatever comes *after* a
