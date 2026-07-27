@@ -47,14 +47,16 @@ at all.
   see it.
   Exact start/end times aren't a hard requirement — arriving late, leaving
   early, or even genuinely overlapping a neighboring pick is fine, up to a
-  point measured as a share of *that neighbor's own set length*, not a flat
-  number of minutes (missing 20 minutes of a 40-minute set is a very
-  different sacrifice than missing 20 minutes of a 2-hour one). Two picks
-  the group is equally excited about can trade up to half of either set's
-  runtime — genuinely worth an overlap or a long walk — and that tolerance
-  shrinks the further apart their ratings are, reaching zero (not one
-  minute of the better pick's set) once the gap hits 4 points, e.g. a 1
-  next to a 5. Ties in rating
+  budget pooled from *both* sides' own set lengths, not a flat number of
+  minutes (missing 20 minutes of a 40-minute set is a very different
+  sacrifice than missing 20 minutes of a 2-hour one). The higher-rated
+  side can give up to half its own runtime when the group is equally
+  excited about both picks, shrinking toward zero the further apart their
+  ratings get (not one minute of a clear favorite's set for a 4-point
+  gap, e.g. a 1 next to a 5) — but the lower-rated side gets the opposite
+  end of that same scale, so it can always trim its own tail to make a
+  walk work even against a much better pick, since that costs the
+  favorite nothing. Ties in rating
   are broken by preferring whichever candidate is the shorter walk from the
   band already scheduled right before it, not the one after — weighing the
   outgoing hop first would let a short walk to whatever comes *after* a
