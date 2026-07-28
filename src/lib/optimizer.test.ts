@@ -163,21 +163,122 @@ describe("optimizeGroupSchedule", () => {
     ]); // needs 101 min slack, over the 100-min budget
   });
 
-  it("lets a much lower-rated candidate trim only its own time against a much higher-rated anchor", () => {
-    // Max rating gap (4, e.g. 1 vs 5) -> the anchor's own budget is 0, but the candidate's
-    // full duration is still spendable from its own side — sacrificing a filler's own tail
-    // costs the anchor nothing and is fine at any rating gap.
-    const anchor = band("Big", "A", 1, 600, 660); // 60 min
-    const candidate = band("Filler", "B", 1, 660, 720); // 60 min, needs exactly 50 min of slack
-    const day = scheduleFor([anchor, candidate], { Big: 5, Filler: 1 }, () => 50);
+  it("still lets a below-the-gate candidate fill a genuinely clean gap, regardless of its own duration", () => {
+    const anchor = band("Big", "A", 1, 600, 660);
+    const candidate = band("Filler", "B", 1, 670, 750); // 80-min set, 10-min gap matches the walk exactly
+    const day = scheduleFor([anchor, candidate], { Big: 5, Filler: 1 }, () => 10);
     expect(day.bandIds).toEqual(["Big", "Filler"]);
   });
 
-  it("still rejects a much lower-rated candidate once even its own full duration isn't enough", () => {
-    const anchor = band("Big", "A", 1, 600, 660); // 60 min, 0-min own budget at max gap
-    const candidate = band("Filler", "B", 1, 660, 720); // 60 min, full self-budget = 60
-    const day = scheduleFor([anchor, candidate], { Big: 5, Filler: 1 }, () => 70); // needs 70
+  it("excludes a below-the-gate candidate once it needs more than the flat cushion, even with no literal overlap", () => {
+    const anchor = band("Big", "A", 1, 600, 660);
+    const candidate = band("Filler", "B", 1, 670, 750); // 10-min gap, needs 41 min of walk -> 31 needed, over the flat 30 cushion
+    const day = scheduleFor([anchor, candidate], { Big: 5, Filler: 1 }, () => 41);
     expect(day.bandIds).toEqual(["Big"]);
+  });
+
+  it("excludes a below-the-gate candidate from any literal overlap at all, however small and regardless of its own duration", () => {
+    // This is the case that motivated CANDIDATE_QUALITY_GATE: without it, a below-the-gate
+    // candidate's own long duration gave it a large enough self-trim budget to shave both
+    // its edges down to a sliver and wedge into an already-good stretch of schedule. A
+    // long (100-min) set rated 1 must now be rejected from even a 1-minute overlap, the
+    // same as a short one would be.
+    const anchor = band("Big", "A", 1, 600, 660);
+    const candidate = band("Filler", "B", 1, 659, 759); // 100-min set, overlaps Big's last minute
+    const day = scheduleFor([anchor, candidate], { Big: 5, Filler: 1 }, () => 0);
+    expect(day.bandIds).toEqual(["Big"]);
+  });
+
+  it("still lets a genuinely decent candidate (rated exactly at the gate) use the pooled duration budget", () => {
+    const anchor = band("Anchor", "A", 1, 600, 660); // 60 min, rated 5
+    const candidate = band("Candidate", "B", 1, 650, 710); // 60 min, rated 4 (at the gate) -> flexible mode applies
+    const day = scheduleFor([anchor, candidate], { Anchor: 5, Candidate: 4 }, () => 12); // 10-min overlap + 12-min walk = 22 needed
+    expect(day.bandIds).toEqual(["Anchor", "Candidate"]);
+  });
+
+  it("resolves the real Day 1 stretch: Elizabeth Nichols no longer wedges between Between Friends and Paris Paloma", () => {
+    // Real Day 1 lineup + real stage distances, extended from the SB19/Paris case above
+    // with Elizabeth Nichols (1, BMI, 920-960) added — it overlaps Between Friends by 25
+    // minutes and Paris Paloma by 15, and used to wedge in by shaving both its own edges
+    // down using its own 40-minute duration as a self-trim budget, despite being rated a
+    // flat 1. Now excluded outright: below the gate, no overlap is tolerated regardless of
+    // size or the candidate's own duration.
+    const walkMinutes = distanceTable([
+      ["Tito's", "Bud Light", 2],
+      ["Tito's", "T-Mobile", 15],
+      ["Tito's", "Allianz", 15],
+      ["Bud Light", "T-Mobile", 20],
+      ["Bud Light", "Allianz", 17],
+      ["T-Mobile", "Allianz", 2],
+      ["Tito's", "BMI", 5],
+      ["Bud Light", "BMI", 7],
+    ]);
+    const bands = [
+      band("Kingfishr", "Tito's", 1, 825, 885),
+      band("BetweenFriends", "Bud Light", 1, 885, 945),
+      band("ElizabethNichols", "BMI", 1, 920, 960),
+      band("SB19", "Allianz", 1, 930, 990),
+      band("ParisPaloma", "Tito's", 1, 945, 1005),
+      band("FiveSOS", "T-Mobile", 1, 990, 1050),
+    ];
+    const day = scheduleFor(
+      bands,
+      { Kingfishr: 4, BetweenFriends: 4, ElizabethNichols: 1, SB19: 4, ParisPaloma: 3.5, FiveSOS: 4.5 },
+      walkMinutes,
+    );
+    expect(day.bandIds).toEqual(["Kingfishr", "BetweenFriends", "SB19", "FiveSOS"]);
+  });
+
+  it("resolves the real Day 2 morning stretch: no below-the-gate act wedges between better ones", () => {
+    // Real Day 2 lineup + real stage distances. Three separate below-the-gate acts each
+    // used to wedge into an already-good stretch by trimming their own (sometimes
+    // sizeable) duration: The Army, The Navy (3) between Beno (5) and Day We Ran (4.5),
+    // Ella Boh (3) cutting into Claire Rosinkranz (4.5), and Mother Mother (1) cutting
+    // into Finn Wolfhard (4). All three are now excluded; the favorites they were cutting
+    // into keep their full sets.
+    const walkMinutes = distanceTable([
+      ["Airbnb", "Allianz", 10],
+      ["Airbnb", "BMI", 7],
+      ["Airbnb", "Bud Light", 7],
+      ["Airbnb", "Tito's", 5],
+      ["Allianz", "BMI", 10],
+      ["Allianz", "Bud Light", 17],
+      ["Allianz", "Tito's", 15],
+      ["BMI", "Bud Light", 7],
+      ["BMI", "Tito's", 5],
+      ["Bud Light", "Tito's", 2],
+    ]);
+    const bands = [
+      band("Beno", "Airbnb", 2, 720, 750),
+      band("ArmyNavy", "Allianz", 2, 730, 775),
+      band("DayWeRan", "Airbnb", 2, 770, 810),
+      band("ValenciaGrace", "BMI", 2, 780, 820),
+      band("ClaireRosinkranz", "Allianz", 2, 820, 880),
+      band("EllaBoh", "BMI", 2, 850, 890),
+      band("BaluBrigada", "Bud Light", 2, 870, 930),
+      band("MotherMother", "Tito's", 2, 930, 990),
+      band("FinnWolfhard", "Airbnb", 2, 960, 1005),
+    ];
+    const weights = {
+      Beno: 5,
+      ArmyNavy: 3,
+      DayWeRan: 4.5,
+      ValenciaGrace: 5,
+      ClaireRosinkranz: 4.5,
+      EllaBoh: 3,
+      BaluBrigada: 4,
+      MotherMother: 1,
+      FinnWolfhard: 4,
+    };
+    const day = scheduleFor(bands, weights, walkMinutes, 2);
+    expect(day.bandIds).toEqual([
+      "Beno",
+      "DayWeRan",
+      "ValenciaGrace",
+      "ClaireRosinkranz",
+      "BaluBrigada",
+      "FinnWolfhard",
+    ]);
   });
 
   it("chains an ordinary same-rating pair with a comfortably-fitting walk", () => {
