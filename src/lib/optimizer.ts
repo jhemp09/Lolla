@@ -93,19 +93,54 @@ function anchorQuality(rating: number): number {
 }
 
 /**
+ * Rating a candidate must clear to get any trade tolerance at all (see
+ * allowedSlackMinutes) — below this, it needs a completely clean fit next to its
+ * neighbor, full stop. This exists because a duration-scaled self-trim budget doesn't
+ * actually track how much anyone wants to see the candidate, only how long its own set
+ * happens to run: a bad-but-long act (a flat-out 1 with a 40-minute set, say) could
+ * shave both its own edges down to a sliver and wedge itself between two already-adjacent
+ * better picks, costing each of them a few minutes too — which is worse than just leaving
+ * it out, and isn't fixed by discounting the *anchor's* side (anchorQuality) since a bad
+ * candidate can pull this even against a genuine 5 the anchor-quality check would fully
+ * protect. Every real case that motivated this gate (Elizabeth Nichols wedging between
+ * Between Friends and Paris Paloma, The Army & The Navy between Beno and Day We Ran, Ella
+ * Boh cutting into Claire Rosinkranz, Mother Mother cutting into Finn Wolfhard) had a
+ * candidate rated 3 or below; every case worth keeping the trade for (Paris Paloma next to
+ * 5 Seconds of Summer) had one rated 4 or above — so the gate sits at 4.
+ */
+const CANDIDATE_QUALITY_GATE = 4;
+
+/**
+ * Below CANDIDATE_QUALITY_GATE, the only tolerance a candidate gets: no literal time
+ * overlap with a neighbor, ever, regardless of size, and a flat combined cushion for a
+ * merely-tight (but non-overlapping) walk — 15 minutes at each end, matching the very
+ * first version of this scheduler, before any rating-based trading existed.
+ */
+const STRICT_WALK_CUSHION_MINUTES = 30;
+
+/**
  * Total minutes of slack (see slackNeeded) a chained pair can spend before it's not worth
- * it, pooled from both sides: up to (1 - protectFraction) of the anchor's own runtime,
- * discounted by how close the anchor itself is to a genuine 5 (see anchorQuality), plus up
- * to protectFraction of the candidate's own runtime, undiscounted — the lower-rated side is
- * always willing to give up more of itself than it asks of the anchor. A clean fit
- * (slackNeeded <= 0) is always fine regardless of this budget either way.
+ * it. Below CANDIDATE_QUALITY_GATE, this is just STRICT_WALK_CUSHION_MINUTES for a clean
+ * gap and zero for any literal overlap (`gapMinutes` — the natural gap between the two,
+ * negative if they overlap — is what distinguishes the two, since slackNeeded alone
+ * already folds a walk that's merely tight and a walk plus a real overlap into the same
+ * kind of positive number). At or above the gate, the budget is pooled from both sides: up
+ * to (1 - protectFraction) of the anchor's own runtime, discounted by how close the anchor
+ * itself is to a genuine 5 (see anchorQuality), plus up to protectFraction of the
+ * candidate's own runtime, undiscounted — the lower-rated side is always willing to give
+ * up more of itself than it asks of the anchor. A clean fit (slackNeeded <= 0) is always
+ * fine regardless of any of this, on either side of the gate.
  */
 function allowedSlackMinutes(
   anchor: Band,
   anchorRating: number,
   candidate: Band,
   candidateRating: number,
+  gapMinutes: number,
 ): number {
+  if (candidateRating < CANDIDATE_QUALITY_GATE) {
+    return gapMinutes < 0 ? 0 : STRICT_WALK_CUSHION_MINUTES;
+  }
   const protect = protectFraction(anchorRating - candidateRating);
   const anchorDuration = anchor.endMinutes - anchor.startMinutes;
   const candidateDuration = candidate.endMinutes - candidate.startMinutes;
@@ -127,16 +162,21 @@ function allowedSlackMinutes(
  * what anyone actually wants from a group schedule.)
  *
  * Exact start/end times aren't a hard requirement — arriving a bit late, leaving a bit
- * early, or even genuinely overlapping a neighbor is fine, up to a point: a candidate is
- * feasible next to whichever bands are already scheduled immediately before and after it
- * as long as the combined walking-time-plus-overlap cost stays within a budget pooled from
- * *both* sides' own runtimes — some of it the neighbor's to give, some of it the
- * candidate's own (see allowedSlackMinutes). A band you're lukewarm on mostly trims its
- * own edges to fit a small gap; a band you both love just as much can trade real time with
- * a favorite in either direction — but only a genuine favorite: how much the higher-rated
- * side is willing to give up of *itself* also depends on how close to a full 5 it actually
- * is, not just how small the gap to its neighbor happens to be, so two merely-decent picks
- * a point apart don't get the same trade room as a 5 and a 4.
+ * early is fine for any band; genuinely overlapping a neighbor is only ever fine for a
+ * band rated 4 or higher (see CANDIDATE_QUALITY_GATE), and even then only up to a point:
+ * a candidate is feasible next to whichever bands are already scheduled immediately before
+ * and after it as long as the combined walking-time-plus-overlap cost stays within a
+ * budget pooled from *both* sides' own runtimes — some of it the neighbor's to give, some
+ * of it the candidate's own (see allowedSlackMinutes). A band you're genuinely excited
+ * about can trade real time with another favorite in either direction, and how much the
+ * higher-rated side gives up of *itself* also depends on how close to a full 5 it actually
+ * is, so two merely-decent picks a point apart don't get the same trade room as a 5 and a
+ * 4. A band rated below that gate gets none of this: no overlap, ever, regardless of size,
+ * just a small flat cushion to fit a genuinely tight-but-clean walk — a duration-scaled
+ * self-trim budget doesn't track how much anyone wants to see a band, only how long its
+ * set happens to run, so without the gate a bad-but-long set could wedge itself between
+ * two already-adjacent better picks by shaving both its own edges to a sliver, at a real
+ * cost to both of them.
  *
  * Ties in rating are broken by preferring whichever candidate is the shorter walk from
  * the band already scheduled right before it (not after — see the worked example below)
@@ -243,13 +283,25 @@ function scheduleDay(
       if (
         predecessor &&
         slackNeeded(predecessor.endMinutes, predecessor.stage, candidate.startMinutes, candidate.stage, walkMinutes) >
-          allowedSlackMinutes(predecessor, scoreOf(predecessor), candidate, candidateScore)
+          allowedSlackMinutes(
+            predecessor,
+            scoreOf(predecessor),
+            candidate,
+            candidateScore,
+            candidate.startMinutes - predecessor.endMinutes,
+          )
       )
         continue;
       if (
         successor &&
         slackNeeded(candidate.endMinutes, candidate.stage, successor.startMinutes, successor.stage, walkMinutes) >
-          allowedSlackMinutes(successor, scoreOf(successor), candidate, candidateScore)
+          allowedSlackMinutes(
+            successor,
+            scoreOf(successor),
+            candidate,
+            candidateScore,
+            successor.startMinutes - candidate.endMinutes,
+          )
       )
         continue;
       committed.splice(insertAt, 0, candidate);

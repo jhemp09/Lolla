@@ -45,21 +45,24 @@ at all.
   below shows up gray ("Low pick") instead of gold — it's there because
   nothing better fit that slot, not because the group actually wanted to
   see it.
-  Exact start/end times aren't a hard requirement — arriving late, leaving
-  early, or even genuinely overlapping a neighboring pick is fine, up to a
-  budget pooled from *both* sides' own set lengths, not a flat number of
-  minutes (missing 20 minutes of a 40-minute set is a very different
-  sacrifice than missing 20 minutes of a 2-hour one). The higher-rated
-  side can give up to half its own runtime when the group is equally
-  excited about both picks, shrinking toward zero the further apart their
-  ratings get (not one minute of a clear favorite's set for a 4-point
-  gap, e.g. a 1 next to a 5) — and that "half its own runtime" ceiling
-  only applies to an actual 5; a merely-decent 4 or 3 is worth stretching
-  for much less even at the same small gap, tapering off fast the further
-  it is from a genuine favorite. The lower-rated side, meanwhile, always
-  gets the full trade room its gap implies regardless of its own rating,
-  since it can freely trim its own tail to make a walk work — that costs
-  the favorite nothing either way. Ties in rating
+  Exact start/end times aren't a hard requirement — arriving late or
+  leaving early is fine for any pick, but genuinely overlapping a
+  neighbor is only ever on the table for a pick rated 4 or higher.
+  Anything rated below that needs a completely clean fit: no overlap at
+  all, regardless of size, just a small flat cushion for a walk that's
+  merely tight. This exists because a self-trim budget that scales with
+  a band's own set length doesn't actually track how much the group
+  wants to see it — a low-rated pick that just happens to run long could
+  otherwise wedge itself between two already-adjacent favorites by
+  shaving both its own edges down to a sliver, costing each of them a
+  few minutes too, for a band nobody's excited about in the first place.
+  Above that gate, a pooled budget (drawn from *both* sides' own set
+  lengths, not a flat number of minutes) decides how much trading is
+  worth it: the higher-rated side can give up to half its own runtime
+  when the group is equally excited about both picks, shrinking toward
+  zero the further apart their ratings get — and that "half its own
+  runtime" ceiling only applies to an actual 5; a merely-decent 4 is
+  worth stretching for less even at the same small gap. Ties in rating
   are broken by preferring whichever candidate is the shorter walk from the
   band already scheduled right before it, not the one after — weighing the
   outgoing hop first would let a short walk to whatever comes *after* a
