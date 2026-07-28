@@ -53,10 +53,13 @@ at all.
   side can give up to half its own runtime when the group is equally
   excited about both picks, shrinking toward zero the further apart their
   ratings get (not one minute of a clear favorite's set for a 4-point
-  gap, e.g. a 1 next to a 5) — but the lower-rated side gets the opposite
-  end of that same scale, so it can always trim its own tail to make a
-  walk work even against a much better pick, since that costs the
-  favorite nothing. Ties in rating
+  gap, e.g. a 1 next to a 5) — and that "half its own runtime" ceiling
+  only applies to an actual 5; a merely-decent 4 or 3 is worth stretching
+  for much less even at the same small gap, tapering off fast the further
+  it is from a genuine favorite. The lower-rated side, meanwhile, always
+  gets the full trade room its gap implies regardless of its own rating,
+  since it can freely trim its own tail to make a walk work — that costs
+  the favorite nothing either way. Ties in rating
   are broken by preferring whichever candidate is the shorter walk from the
   band already scheduled right before it, not the one after — weighing the
   outgoing hop first would let a short walk to whatever comes *after* a

@@ -77,9 +77,26 @@ function protectFraction(ratingGap: number): number {
 }
 
 /**
+ * How much of a genuine 5 a given rating actually is, squared so anything short of a real
+ * 5 tapers off fast: a 4 only gets 64% credit, a 3 gets 36%. protectFraction's generosity
+ * (up to half an anchor's own runtime traded away at a 0-point gap) was calibrated entirely
+ * around examples anchored to a 5 — "two competing 5s," "a 4 blocking a 5" — so a 1-point
+ * gap between a merely-decent 4 and a 3 shouldn't earn the same trade room as the same
+ * 1-point gap between a 5 and a 4 just because the *gap* looks identical; the anchor itself
+ * has to actually be worth stretching for. Only ever applied to the anchor's own
+ * sacrificeable minutes (see allowedSlackMinutes) — a candidate trimming its own tail to
+ * make a walk work costs nobody else anything and doesn't need this gate, regardless of how
+ * unexciting that candidate is.
+ */
+function anchorQuality(rating: number): number {
+  return (rating / 5) ** 2;
+}
+
+/**
  * Total minutes of slack (see slackNeeded) a chained pair can spend before it's not worth
  * it, pooled from both sides: up to (1 - protectFraction) of the anchor's own runtime,
- * plus up to protectFraction of the candidate's own runtime — the lower-rated side is
+ * discounted by how close the anchor itself is to a genuine 5 (see anchorQuality), plus up
+ * to protectFraction of the candidate's own runtime, undiscounted — the lower-rated side is
  * always willing to give up more of itself than it asks of the anchor. A clean fit
  * (slackNeeded <= 0) is always fine regardless of this budget either way.
  */
@@ -92,7 +109,7 @@ function allowedSlackMinutes(
   const protect = protectFraction(anchorRating - candidateRating);
   const anchorDuration = anchor.endMinutes - anchor.startMinutes;
   const candidateDuration = candidate.endMinutes - candidate.startMinutes;
-  return anchorDuration * (1 - protect) + candidateDuration * protect;
+  return anchorDuration * (1 - protect) * anchorQuality(anchorRating) + candidateDuration * protect;
 }
 
 /**
@@ -116,7 +133,10 @@ function allowedSlackMinutes(
  * *both* sides' own runtimes — some of it the neighbor's to give, some of it the
  * candidate's own (see allowedSlackMinutes). A band you're lukewarm on mostly trims its
  * own edges to fit a small gap; a band you both love just as much can trade real time with
- * a favorite in either direction.
+ * a favorite in either direction — but only a genuine favorite: how much the higher-rated
+ * side is willing to give up of *itself* also depends on how close to a full 5 it actually
+ * is, not just how small the gap to its neighbor happens to be, so two merely-decent picks
+ * a point apart don't get the same trade room as a 5 and a 4.
  *
  * Ties in rating are broken by preferring whichever candidate is the shorter walk from
  * the band already scheduled right before it (not after — see the worked example below)
