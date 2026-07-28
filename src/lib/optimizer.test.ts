@@ -98,14 +98,15 @@ describe("optimizeGroupSchedule", () => {
     expect(day.bandIds).toEqual(["Beno", "ValenciaGrace", "ZaraLarsson", "EllaRed", "YUNGBLUD"]);
   });
 
-  it("lets a lower-rated candidate trade time with a nearby-rated favorite (the real Paris Paloma case)", () => {
-    // Real Day 1 lineup + real stage distances. Paris Paloma (3.5) sits between Between
-    // Friends (4) and 5 Seconds of Summer (4.5) — it overlaps 5SOS by 15 minutes and needs
-    // a 15-minute walk on top (30 total), which used to be rejected outright because only
-    // 5SOS's own runtime was ever considered spendable. Now Paris's own 60-minute set can
-    // also absorb part of that cost (its own tail), so the combined budget covers it. SB19
-    // (4), which was narrowly excluded from the slot right before it by the same gap, is
-    // fixed too.
+  it("fixes SB19's own exclusion, and correctly still excludes Paris once SB19 takes its slot (the real Paris Paloma case)", () => {
+    // Real Day 1 lineup + real stage distances. SB19 (4) was narrowly excluded from the
+    // slot right after Between Friends by the pre-pooled-budget model; that's fixed here.
+    // But SB19 winning that slot changes who Paris Paloma (3.5) actually has to fit next
+    // to: not just 5 Seconds of Summer (4.5, which it *would* clear comfortably) but SB19
+    // itself, which it overlaps by 45 of both their 60-minute runtimes (75% each) — the
+    // same shape of conflict as Finn/Skye below, just between Paris and SB19 instead. SB19
+    // rated higher, so it keeps the slot it already claimed; Paris rightly stays out this
+    // time, correctly generalizing the anchorQuality fix rather than contradicting it.
     const walkMinutes = distanceTable([
       ["Tito's", "Bud Light", 2],
       ["Tito's", "T-Mobile", 15],
@@ -126,7 +127,21 @@ describe("optimizeGroupSchedule", () => {
       { Kingfishr: 4, BetweenFriends: 4, SB19: 4, ParisPaloma: 3.5, FiveSOS: 4.5 },
       walkMinutes,
     );
-    expect(day.bandIds).toEqual(["Kingfishr", "BetweenFriends", "SB19", "ParisPaloma", "FiveSOS"]);
+    expect(day.bandIds).toEqual(["Kingfishr", "BetweenFriends", "SB19", "FiveSOS"]);
+  });
+
+  it("rejects two only-decent picks trading time just because their rating gap is small (the real Finn/Skye case)", () => {
+    // Real Day 2 lineup + real stage distances. Skye Newman (3, Allianz, 60 min) and Finn
+    // Wolfhard (4, Airbnb, 45 min) overlap by 40 minutes plus a 10-minute walk (50 total) —
+    // only a 1-point gap, the same as Paris/5SOS above, but neither act is anywhere near a
+    // genuine 5. Without anchorQuality this fit (a 4's own budget doesn't care how far that
+    // 4 itself is from a 5), which is exactly the over-correction anchorQuality exists to
+    // catch: Finn's own sacrificeable budget is discounted by how far it is from a real 5,
+    // on top of the existing gap-based discount.
+    const walkMinutes = distanceTable([["Allianz", "Airbnb", 10]]);
+    const bands = [band("SkyeNewman", "Allianz", 2, 940, 1000), band("FinnWolfhard", "Airbnb", 2, 960, 1005)];
+    const day = scheduleFor(bands, { SkyeNewman: 3, FinnWolfhard: 4 }, walkMinutes, 2);
+    expect(day.bandIds).toEqual(["FinnWolfhard"]);
   });
 
   it("lets two equally-rated picks pool slack from both of their own durations", () => {
