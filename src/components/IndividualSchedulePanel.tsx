@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useUserSchedule, removeFromSchedule } from "../state/useSchedule";
@@ -14,6 +14,7 @@ import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
 import { AddBandForm } from "./AddBandForm";
 import { AvoidIcon } from "./AvoidIcon";
+import { ExportImageButton } from "./ExportImageButton";
 import { sortByStageOrder } from "../lib/stageOrder";
 import { LOW_CONSENSUS_THRESHOLD } from "../lib/optimizer";
 
@@ -34,6 +35,7 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
   );
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-individual-view", "grid");
   const [showAddForm, setShowAddForm] = useState(false);
+  const captureRef = useRef<HTMLDivElement | null>(null);
 
   // The persisted member might belong to a group we've since left, or not exist yet — fall back to self.
   const effectiveMember = members.includes(selectedMember) ? selectedMember : myUserName;
@@ -152,82 +154,90 @@ export function IndividualSchedulePanel({ bands, day, setDay }: Props) {
             List
           </button>
         </div>
-        {isAdmin && !showAddForm && (
-          <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
-            + Add band
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <ExportImageButton
+            targetRef={captureRef}
+            filename={`${effectiveMember.replace(/\s+/g, "-")}-Schedule-${DAY_LABELS[day]}-${view}.png`}
+          />
+          {isAdmin && !showAddForm && (
+            <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
+              + Add band
+            </button>
+          )}
+        </div>
       </div>
 
       {showAddForm && (
         <AddBandForm bands={bands} onDone={() => setShowAddForm(false)} />
       )}
 
-      {view === "grid" ? (
-        <>
-          <div className="day-tabs" style={{ padding: "0 0 10px" }}>
-            {([1, 2, 3, 4] as Day[]).map((d) => (
-              <button
-                key={d}
-                className={`day-tab${d === day ? " active" : ""}`}
-                onClick={() => setDay(d)}
-              >
-                {DAY_LABELS[d]}
-              </button>
-            ))}
+      <div ref={captureRef}>
+        {view === "grid" ? (
+          <>
+            <div className="day-tabs" style={{ padding: "0 0 10px" }}>
+              {([1, 2, 3, 4] as Day[]).map((d) => (
+                <button
+                  key={d}
+                  className={`day-tab${d === day ? " active" : ""}`}
+                  onClick={() => setDay(d)}
+                >
+                  {DAY_LABELS[d]}
+                </button>
+              ))}
+            </div>
+            <ItineraryGrid
+              bands={bands}
+              day={day}
+              stages={stages}
+              highlights={highlights}
+              avoidBandIds={avoidBandIds}
+            />
+          </>
+        ) : displayedBands.length === 0 ? (
+          <div className="empty-state">
+            {isSelf
+              ? "Nothing yet — rate bands as a group, or add your own from the Bands tab."
+              : `${effectiveMember} hasn't added anything yet.`}
           </div>
-          <ItineraryGrid
-            bands={bands}
-            day={day}
-            stages={stages}
-            highlights={highlights}
-            avoidBandIds={avoidBandIds}
-          />
-        </>
-      ) : displayedBands.length === 0 ? (
-        <div className="empty-state">
-          {isSelf
-            ? "Nothing yet — rate bands as a group, or add your own from the Bands tab."
-            : `${effectiveMember} hasn't added anything yet.`}
-        </div>
-      ) : (
-        displayedByDay.map(([d, dayBands]) => (
-          <div key={d} style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d]}</h2>
-            {dayBands.map((b) => (
-              <div
-                key={b.id}
-                className="band-card clickable"
-                style={{ position: "relative" }}
-                onClick={() => openBandDetail(b.id)}
-              >
-                {avoidBandIds.has(b.id) && <AvoidIcon className="band-card-avoid" />}
-                <BandCardHeader band={b} right={<span className="badge">{b.stage}</span>} />
-                <div className="band-card-actions">
-                  <span className={`diff-badge ${highlights.get(b.id)}`}>
-                    {highlights.get(b.id) === "group"
-                      ? "Group schedule"
-                      : highlights.get(b.id) === "low"
-                        ? "Low pick"
-                        : "Personal pick"}
-                  </span>
-                  {isSelf && ownBandIds.has(b.id) && (
-                    <button
-                      className="schedule-btn added"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeFromSchedule(groupCode, b.id, myUserName);
-                      }}
-                    >
-                      Remove
-                    </button>
-                  )}
+        ) : (
+          displayedByDay.map(([d, dayBands]) => (
+            <div key={d} style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d]}</h2>
+              {dayBands.map((b) => (
+                <div
+                  key={b.id}
+                  className="band-card clickable"
+                  style={{ position: "relative" }}
+                  onClick={() => openBandDetail(b.id)}
+                >
+                  {avoidBandIds.has(b.id) && <AvoidIcon className="band-card-avoid" />}
+                  <BandCardHeader band={b} right={<span className="badge">{b.stage}</span>} />
+                  <div className="band-card-actions">
+                    <span className={`diff-badge ${highlights.get(b.id)}`}>
+                      {highlights.get(b.id) === "group"
+                        ? "Group schedule"
+                        : highlights.get(b.id) === "low"
+                          ? "Low pick"
+                          : "Personal pick"}
+                    </span>
+                    {isSelf && ownBandIds.has(b.id) && (
+                      <button
+                        className="schedule-btn added"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromSchedule(groupCode, b.id, myUserName);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ))
-      )}
+              ))}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
