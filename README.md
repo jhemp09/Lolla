@@ -85,9 +85,12 @@ at all.
   switcher lets you view — read-only — anyone else in your group's individual
   schedule the same way. Both halves, and both other members' schedules,
   support List and Grid views. Each has a **Share image** button that
-  captures whatever's currently on screen (that day, that view) as a PNG —
-  on a phone this opens the native share sheet (so sending it to someone is
-  the same tap as saving it), and falls back to a plain download on desktop.
+  captures the *whole* schedule for that day/view as a PNG — including any
+  stages scrolled out of view on a phone screen, not just what's currently
+  visible — and opens it full-screen with Download and Share in the corner,
+  so there's a chance to look at it before it goes anywhere. Share uses the
+  native share sheet where the browser supports sharing files; otherwise
+  only Download shows up.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup push to
   the group immediately on every local change, and a teammate's changes

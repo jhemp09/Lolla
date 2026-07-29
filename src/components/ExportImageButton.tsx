@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { shareOrDownloadImage } from "../lib/exportImage";
+import { captureElementAsPng } from "../lib/exportImage";
+import { openImagePreview } from "../state/useImagePreview";
 
-/** Button that renders whatever DOM node `targetRef` points at into a PNG and shares or
- * downloads it — used to capture a schedule view exactly as it looks on screen at the
- * moment of the tap. */
+/** Button that renders whatever DOM node `targetRef` points at into a PNG and opens it
+ * in a full-screen preview (with Download/Share) — captures a schedule view exactly as
+ * it looks on screen at the moment of the tap. */
 export function ExportImageButton({
   targetRef,
   filename,
@@ -19,7 +20,8 @@ export function ExportImageButton({
     setBusy(true);
     try {
       const backgroundColor = getComputedStyle(document.body).backgroundColor;
-      await shareOrDownloadImage(node, filename, backgroundColor);
+      const blob = await captureElementAsPng(node, backgroundColor);
+      openImagePreview(blob, filename);
     } catch {
       alert("Couldn't create an image of the schedule — try again.");
     } finally {
