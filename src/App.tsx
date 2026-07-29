@@ -6,12 +6,14 @@ import { useOnlineMode } from "./state/useOnlineMode";
 import { useSession, useIsAdmin } from "./state/useAuth";
 import { useSelectedBandId, closeBandDetail } from "./state/useSelectedBand";
 import { closeStageDistances } from "./state/useStageDistancesPage";
+import { closeImagePreview } from "./state/useImagePreview";
 import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
 import { startAutoSync, stopAutoSync, syncNow } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
 import { BandsIcon, ScheduleIcon, SyncIcon, AdminIcon } from "./components/NavIcons";
 import { BandDetail } from "./components/BandDetail";
+import { ImagePreviewOverlay } from "./components/ImagePreviewOverlay";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { SyncPage } from "./pages/SyncPage";
@@ -34,6 +36,7 @@ function App() {
   function goToTab(next: typeof tab) {
     closeBandDetail();
     closeStageDistances();
+    closeImagePreview();
     setTab(next);
     syncNow();
   }
@@ -92,6 +95,7 @@ function App() {
         {tab === "admin" && isAdmin && <AdminPage />}
       </div>
       {selectedBand && <BandDetail band={selectedBand} onBack={closeBandDetail} />}
+      <ImagePreviewOverlay />
 
       <nav className="bottom-nav">
         <button
