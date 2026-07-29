@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Band, Day } from "../types";
 import { DAY_LABELS } from "../types";
 import { useGroupCode } from "../state/useGroup";
@@ -9,6 +9,7 @@ import { useIsAdmin } from "../state/useAuth";
 import { ItineraryGrid, type HighlightCategory } from "./ItineraryGrid";
 import { BandCardHeader } from "./BandCardHeader";
 import { AddBandForm } from "./AddBandForm";
+import { ExportImageButton } from "./ExportImageButton";
 import { sortByStageOrder } from "../lib/stageOrder";
 import { LOW_CONSENSUS_THRESHOLD } from "../lib/optimizer";
 
@@ -24,6 +25,7 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
   const { days, ratingWeights } = useComputedGroupSchedule(groupCode, bands);
   const [view, setView] = usePersistedState<"list" | "grid">("lolla-group-schedule-view", "grid");
   const [showAddForm, setShowAddForm] = useState(false);
+  const captureRef = useRef<HTMLDivElement | null>(null);
 
   const bandsById = useMemo(() => new Map(bands.map((b) => [b.id, b])), [bands]);
   const totalPicks = useMemo(() => days.reduce((sum, d) => sum + d.bandIds.length, 0), [days]);
@@ -73,62 +75,70 @@ export function GroupSchedulePanel({ bands, day, setDay }: Props) {
             List
           </button>
         </div>
-        {isAdmin && !showAddForm && (
-          <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
-            + Add band
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          <ExportImageButton
+            targetRef={captureRef}
+            filename={`Group-Schedule-${DAY_LABELS[day]}-${view}.png`}
+          />
+          {isAdmin && !showAddForm && (
+            <button className="secondary-btn" onClick={() => setShowAddForm(true)}>
+              + Add band
+            </button>
+          )}
+        </div>
       </div>
 
       {showAddForm && (
         <AddBandForm bands={bands} onDone={() => setShowAddForm(false)} />
       )}
 
-      {view === "grid" ? (
-        <>
-          <div className="day-tabs" style={{ padding: "0 0 10px" }}>
-            {([1, 2, 3, 4] as Day[]).map((d) => (
-              <button
-                key={d}
-                className={`day-tab${d === day ? " active" : ""}`}
-                onClick={() => setDay(d)}
-              >
-                {DAY_LABELS[d]}
-              </button>
-            ))}
-          </div>
-          <ItineraryGrid bands={bands} day={day} stages={stages} highlights={highlights} />
-        </>
-      ) : totalPicks === 0 ? (
-        <div className="empty-state">No picks yet — rate some bands as a group.</div>
-      ) : (
-        days.map((d) => {
-          if (d.bandIds.length === 0) return null;
-          return (
-            <div key={d.day} style={{ marginBottom: 16 }}>
-              <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d.day]}</h2>
-              {d.bandIds.map((bandId) => {
-                const band = bandsById.get(bandId);
-                if (!band) return null;
-                return (
-                  <div
-                    key={bandId}
-                    className="band-card clickable"
-                    onClick={() => openBandDetail(band.id)}
-                  >
-                    <BandCardHeader band={band} right={<span className="badge">{band.stage}</span>} />
-                    {highlights.get(bandId) === "low" && (
-                      <span className="diff-badge low" style={{ marginTop: 8, display: "inline-block" }}>
-                        Low pick
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+      <div ref={captureRef}>
+        {view === "grid" ? (
+          <>
+            <div className="day-tabs" style={{ padding: "0 0 10px" }}>
+              {([1, 2, 3, 4] as Day[]).map((d) => (
+                <button
+                  key={d}
+                  className={`day-tab${d === day ? " active" : ""}`}
+                  onClick={() => setDay(d)}
+                >
+                  {DAY_LABELS[d]}
+                </button>
+              ))}
             </div>
-          );
-        })
-      )}
+            <ItineraryGrid bands={bands} day={day} stages={stages} highlights={highlights} />
+          </>
+        ) : totalPicks === 0 ? (
+          <div className="empty-state">No picks yet — rate some bands as a group.</div>
+        ) : (
+          days.map((d) => {
+            if (d.bandIds.length === 0) return null;
+            return (
+              <div key={d.day} style={{ marginBottom: 16 }}>
+                <h2 style={{ fontSize: 15, margin: "10px 0" }}>{DAY_LABELS[d.day]}</h2>
+                {d.bandIds.map((bandId) => {
+                  const band = bandsById.get(bandId);
+                  if (!band) return null;
+                  return (
+                    <div
+                      key={bandId}
+                      className="band-card clickable"
+                      onClick={() => openBandDetail(band.id)}
+                    >
+                      <BandCardHeader band={band} right={<span className="badge">{band.stage}</span>} />
+                      {highlights.get(bandId) === "low" && (
+                        <span className="diff-badge low" style={{ marginTop: 8, display: "inline-block" }}>
+                          Low pick
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

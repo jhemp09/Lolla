@@ -84,7 +84,10 @@ at all.
   yours to remove — that's what the Group Schedule tab is for); a member
   switcher lets you view — read-only — anyone else in your group's individual
   schedule the same way. Both halves, and both other members' schedules,
-  support List and Grid views.
+  support List and Grid views. Each has a **Share image** button that
+  captures whatever's currently on screen (that day, that view) as a PNG —
+  on a phone this opens the native share sheet (so sending it to someone is
+  the same tap as saving it), and falls back to a plain download on desktop.
 - **Sync** is a small [Supabase](https://supabase.com) project (Postgres + REST,
   free tier). Flip the toggle online and your ratings/schedule/lineup push to
   the group immediately on every local change, and a teammate's changes
