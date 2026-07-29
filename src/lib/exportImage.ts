@@ -13,6 +13,14 @@ import { toBlob } from "html-to-image";
  * capture, restored immediately after — lets its full content render unclipped instead,
  * which is what the wider requested width is then actually large enough to fit.
  *
+ * That switch has a side effect worth guarding against: the grid's column headers are
+ * position:sticky, which needs an ancestor with a non-visible overflow to stick *within*
+ * — remove that (as we just did) and the header falls back to sticking to the
+ * *viewport* instead, landing wherever the page happens to be scrolled to rather than at
+ * the top of the grid. Meaningless for a static image regardless, so headers are forced
+ * to position:static for the same brief window, guaranteeing they render in their normal
+ * in-flow position no matter where the live page was scrolled when the button was tapped.
+ *
  * backgroundColor is passed explicitly because the captured node itself is usually
  * transparent (only the page body sets a background) — without it, dark-mode captures
  * come out with a transparent/black backdrop instead of matching what was on screen.
@@ -21,8 +29,11 @@ import { toBlob } from "html-to-image";
  */
 export async function captureElementAsPng(node: HTMLElement, backgroundColor: string): Promise<Blob> {
   const scrollers = Array.from(node.querySelectorAll<HTMLElement>(".grid-wrap"));
+  const stickies = Array.from(node.querySelectorAll<HTMLElement>(".grid-header-cell"));
   const previousOverflow = scrollers.map((el) => el.style.overflow);
+  const previousPosition = stickies.map((el) => el.style.position);
   for (const el of scrollers) el.style.overflow = "visible";
+  for (const el of stickies) el.style.position = "static";
 
   try {
     let width = node.scrollWidth;
@@ -34,6 +45,9 @@ export async function captureElementAsPng(node: HTMLElement, backgroundColor: st
   } finally {
     scrollers.forEach((el, i) => {
       el.style.overflow = previousOverflow[i];
+    });
+    stickies.forEach((el, i) => {
+      el.style.position = previousPosition[i];
     });
   }
 }
