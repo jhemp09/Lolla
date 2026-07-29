@@ -19,7 +19,13 @@ export function ExportImageButton({
     if (!node) return;
     setBusy(true);
     try {
-      const backgroundColor = getComputedStyle(document.body).backgroundColor;
+      // The app's actual background comes from :root (--bg on <html>), not <body> —
+      // body itself is transparent, so reading its computed color gives a transparent
+      // fill instead of the real page background, and the resulting PNG's "background"
+      // ends up genuinely transparent: fine-looking wherever something happens to
+      // composite it over white, wrong wherever black (a full-screen photo viewer, or
+      // this app's own dark preview backdrop).
+      const backgroundColor = getComputedStyle(document.documentElement).backgroundColor;
       const blob = await captureElementAsPng(node, backgroundColor);
       openImagePreview(blob, filename);
     } catch {
