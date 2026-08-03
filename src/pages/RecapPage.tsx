@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import type { Band } from "../types";
+import type { Band, Day } from "../types";
+import { DAY_LABELS } from "../types";
 import { useAllBands } from "../state/useBands";
 import { useUserRatings } from "../state/useRatings";
 import { useUserName } from "../state/useUser";
@@ -23,6 +24,54 @@ function DiffBadge({ diff }: { diff: number }) {
   if (diff > 0) return <span className="diff-badge surprise">+{diff}</span>;
   if (diff < 0) return <span className="diff-badge disappointment">{diff}</span>;
   return <span className="diff-badge low">0</span>;
+}
+
+interface RecapStats {
+  totalSeen: number;
+  rankCounts: Record<1 | 2 | 3 | 4 | 5, number>;
+  topGenre: { name: string; count: number } | null;
+  busiestDay: { day: Day; count: number } | null;
+}
+
+function StatsCard({ stats }: { stats: RecapStats }) {
+  const maxRankCount = Math.max(...Object.values(stats.rankCounts));
+  return (
+    <div className="recap-stats-card">
+      <div className="recap-stat-grid">
+        <div className="recap-stat-tile">
+          <div className="recap-stat-value">{stats.totalSeen}</div>
+          <div className="recap-stat-label">Acts seen</div>
+        </div>
+        <div className="recap-stat-tile">
+          <div className="recap-stat-value">{stats.topGenre?.name ?? "—"}</div>
+          <div className="recap-stat-label">
+            Top genre{stats.topGenre ? ` (${stats.topGenre.count})` : ""}
+          </div>
+        </div>
+        <div className="recap-stat-tile">
+          <div className="recap-stat-value">
+            {stats.busiestDay ? DAY_LABELS[stats.busiestDay.day] : "—"}
+          </div>
+          <div className="recap-stat-label">
+            Busiest day{stats.busiestDay ? ` (${stats.busiestDay.count})` : ""}
+          </div>
+        </div>
+      </div>
+
+      {([5, 4, 3, 2, 1] as const).map((rank) => (
+        <div className="recap-rating-row" key={rank}>
+          <span className="recap-rating-label">★{rank}</span>
+          <div className="recap-rating-bar-track">
+            <div
+              className="recap-rating-bar-fill"
+              style={{ width: maxRankCount > 0 ? `${(stats.rankCounts[rank] / maxRankCount) * 100}%` : "0%" }}
+            />
+          </div>
+          <span className="recap-rating-count">{stats.rankCounts[rank]}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function RecapCard({ row, badge }: { row: RecapRow; badge: ReactNode }) {
@@ -51,7 +100,7 @@ export function RecapPage() {
   const [groupCode] = useGroupCode();
   const ratings = useUserRatings(groupCode, userName);
 
-  const { ranked, surprises, disappointments } = useMemo(() => {
+  const { ranked, surprises, disappointments, stats } = useMemo(() => {
     const rated: RecapRow[] = [];
     for (const band of bands) {
       const r = ratings.get(band.id);
@@ -71,7 +120,26 @@ export function RecapPage() {
     const minDiff = rated.reduce((min, r) => Math.min(min, r.diff), 0);
     const disappointments = minDiff < 0 ? rated.filter((r) => r.diff === minDiff) : [];
 
-    return { ranked, surprises, disappointments };
+    const rankCounts: RecapStats["rankCounts"] = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const genreCounts = new Map<string, number>();
+    const dayCounts = new Map<Day, number>();
+    for (const row of rated) {
+      rankCounts[row.duringRating as 1 | 2 | 3 | 4 | 5]++;
+      genreCounts.set(row.band.genre, (genreCounts.get(row.band.genre) ?? 0) + 1);
+      dayCounts.set(row.band.day, (dayCounts.get(row.band.day) ?? 0) + 1);
+    }
+    let topGenre: RecapStats["topGenre"] = null;
+    for (const [name, count] of genreCounts) {
+      if (!topGenre || count > topGenre.count) topGenre = { name, count };
+    }
+    let busiestDay: RecapStats["busiestDay"] = null;
+    for (const [day, count] of dayCounts) {
+      if (!busiestDay || count > busiestDay.count) busiestDay = { day, count };
+    }
+
+    const stats: RecapStats = { totalSeen: rated.length, rankCounts, topGenre, busiestDay };
+
+    return { ranked, surprises, disappointments, stats };
   }, [bands, ratings]);
 
   if (ranked.length === 0) {
@@ -86,6 +154,8 @@ export function RecapPage() {
 
   return (
     <div className="main">
+      <StatsCard stats={stats} />
+
       {surprises.length > 0 && (
         <>
           <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Biggest Surprises</h2>
