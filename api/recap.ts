@@ -129,6 +129,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || DEFAULT_MODEL,
         max_tokens: 1024,
+        // Explicitly off: this model defaults to extended thinking, which was burning the
+        // whole max_tokens budget on a "thinking" block and leaving nothing for the actual
+        // recap text (stop_reason: max_tokens, blocks: thinking). A short creative recap
+        // doesn't need extended reasoning anyway.
+        thinking: { type: "disabled" },
         messages: [{ role: "user", content: buildPrompt(userName, acts) }],
       }),
     });
