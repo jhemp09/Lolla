@@ -128,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         model: process.env.ANTHROPIC_MODEL || DEFAULT_MODEL,
-        max_tokens: 600,
+        max_tokens: 1024,
         messages: [{ role: "user", content: buildPrompt(userName, acts) }],
       }),
     });
@@ -139,10 +139,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const data = (await response.json()) as { content?: { type: string; text?: string }[] };
+    const data = (await response.json()) as {
+      content?: { type: string; text?: string }[];
+      stop_reason?: string;
+    };
     const text = data.content?.find((block) => block.type === "text")?.text?.trim();
     if (!text) {
-      res.status(502).json({ error: "AI recap service returned an empty response." });
+      const blockTypes = data.content?.map((b) => b.type).join(", ") || "none";
+      // stop_reason/blockTypes surfaced in the error itself (rather than only logged) since
+      // there's no way to hand the caller Vercel's function logs from inside the app.
+      res.status(502).json({
+        error: `AI recap service returned no usable text (stop_reason: ${data.stop_reason ?? "unknown"}, blocks: ${blockTypes}).`,
+      });
       return;
     }
     res.status(200).json({ text });
