@@ -17,6 +17,14 @@ interface RecapRow {
   diff: number;
 }
 
+/** during-vs-pre gap as a colored badge: green/"+n" for a pleasant surprise, red/"n" for a
+ * letdown, neutral/"0" when the performance matched expectations exactly. */
+function DiffBadge({ diff }: { diff: number }) {
+  if (diff > 0) return <span className="diff-badge surprise">+{diff}</span>;
+  if (diff < 0) return <span className="diff-badge disappointment">{diff}</span>;
+  return <span className="diff-badge low">0</span>;
+}
+
 function RecapCard({ row, badge }: { row: RecapRow; badge: ReactNode }) {
   const open = useOpenBandDetail(row.band.id);
   return (
@@ -82,11 +90,7 @@ export function RecapPage() {
         <>
           <h2 style={{ fontSize: 15, margin: "0 0 8px" }}>Biggest Surprises</h2>
           {surprises.map((row) => (
-            <RecapCard
-              key={row.band.id}
-              row={row}
-              badge={<span className="diff-badge surprise">+{row.diff}</span>}
-            />
+            <RecapCard key={row.band.id} row={row} badge={<DiffBadge diff={row.diff} />} />
           ))}
         </>
       )}
@@ -95,18 +99,14 @@ export function RecapPage() {
         <>
           <h2 style={{ fontSize: 15, margin: "12px 0 8px" }}>Biggest Disappointments</h2>
           {disappointments.map((row) => (
-            <RecapCard
-              key={row.band.id}
-              row={row}
-              badge={<span className="diff-badge disappointment">{row.diff}</span>}
-            />
+            <RecapCard key={row.band.id} row={row} badge={<DiffBadge diff={row.diff} />} />
           ))}
         </>
       )}
 
       <h2 style={{ fontSize: 15, margin: "12px 0 8px" }}>Fest Recap</h2>
-      {ranked.map((row, i) => (
-        <RecapCard key={row.band.id} row={row} badge={<span className="badge">#{i + 1}</span>} />
+      {ranked.map((row) => (
+        <RecapCard key={row.band.id} row={row} badge={<DiffBadge diff={row.diff} />} />
       ))}
     </div>
   );
