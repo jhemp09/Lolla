@@ -11,11 +11,12 @@ import { useBand } from "./state/useBands";
 import { useTab } from "./state/useTab";
 import { startAutoSync, stopAutoSync, syncNow } from "./lib/autoSync";
 import { AuthScreen } from "./components/AuthScreen";
-import { BandsIcon, ScheduleIcon, SyncIcon, AdminIcon } from "./components/NavIcons";
+import { BandsIcon, ScheduleIcon, RecapIcon, SyncIcon, AdminIcon } from "./components/NavIcons";
 import { BandDetail } from "./components/BandDetail";
 import { ImagePreviewOverlay } from "./components/ImagePreviewOverlay";
 import { BandsPage } from "./pages/BandsPage";
 import { SchedulePage } from "./pages/SchedulePage";
+import { RecapPage } from "./pages/RecapPage";
 import { SyncPage } from "./pages/SyncPage";
 import { AdminPage } from "./pages/AdminPage";
 
@@ -91,6 +92,7 @@ function App() {
       <div style={{ display: selectedBand ? "none" : "contents" }}>
         {tab === "bands" && <BandsPage />}
         {tab === "schedule" && <SchedulePage />}
+        {tab === "recap" && <RecapPage />}
         {tab === "sync" && <SyncPage />}
         {tab === "admin" && isAdmin && <AdminPage />}
       </div>
@@ -111,6 +113,13 @@ function App() {
         >
           <span className="bottom-nav-icon"><ScheduleIcon /></span>
           Schedule
+        </button>
+        <button
+          className={`bottom-nav-btn${tab === "recap" ? " active" : ""}`}
+          onClick={() => goToTab("recap")}
+        >
+          <span className="bottom-nav-icon"><RecapIcon /></span>
+          Recap
         </button>
         <button
           className={`bottom-nav-btn${tab === "sync" ? " active" : ""}`}

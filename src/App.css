@@ -498,6 +498,16 @@
   color: var(--low);
 }
 
+.diff-badge.surprise {
+  background: rgba(42, 157, 92, 0.15);
+  color: #2a9d5c;
+}
+
+.diff-badge.disappointment {
+  background: rgba(214, 69, 69, 0.15);
+  color: var(--danger);
+}
+
 .sync-card {
   border: 1px solid var(--border);
   background: var(--bg-raised);
