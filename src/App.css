@@ -563,6 +563,22 @@
   flex-shrink: 0;
 }
 
+.ai-recap-card {
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.ai-recap-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-h);
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+}
+
 .diff-badge.surprise {
   background: rgba(42, 157, 92, 0.15);
   color: #2a9d5c;

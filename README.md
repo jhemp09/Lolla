@@ -182,6 +182,28 @@ Note: every table requires a logged-in account (RLS checks `auth.role() =
 partition — any account in this project can read/write any group's rows.
 Fine for a casual friend-group app; don't put anything sensitive here.
 
+## Setting up the AI recap
+
+The Fest Recap tab has a "Your Festival, As Told By AI" button that sends the
+signed-in user's pre-/during-festival ratings and notes to an Anthropic model
+and shows back a short, personalized recap. It's implemented as a Vercel
+serverless function (`api/recap.ts`) that holds the API key server-side, so
+the browser never sees it, and it only runs a real request for someone who's
+authenticated with your Supabase project — a stranger who finds the deployed
+`/api/recap` URL can't use it to spend your API credits.
+
+1. Grab a key from [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
+2. Set it as `ANTHROPIC_API_KEY` — deliberately **not** prefixed with `VITE_`,
+   since that prefix is what tells Vite to bundle a variable into the client;
+   this one must stay server-side only. Set it in your Vercel project's
+   Environment Variables (or `.env.local`, if you're running `vercel dev`
+   locally — plain `vite dev` doesn't run the `api/` function at all).
+3. Optionally set `ANTHROPIC_MODEL` to override the default model.
+
+Without this configured, the button still shows up but just returns a
+friendly "AI recap isn't configured for this deployment" error — nothing else
+in the app depends on it.
+
 ## Making yourself the admin
 
 The Admin tab (lineup, stage distances, bulk ratings imports) only shows up in

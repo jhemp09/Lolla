@@ -49,13 +49,18 @@ export function useUserPreRatings(groupCode: string, userName: string): Map<stri
   return useMemo(() => new Map((rows ?? []).map((r) => [r.bandId, r.preRating])), [rows]);
 }
 
-/** This user's pre- and during-festival ratings together for every band they've rated
- * (either kind) in this group — the Fest Recap page needs both numbers side by side to
- * compare them, unlike usePreRating/useUserPreRatings which only ever need the one. */
-export function useUserRatings(
-  groupCode: string,
-  userName: string,
-): Map<string, { preRating: number; duringRating: number }> {
+export interface UserRatingPair {
+  preRating: number;
+  preNotes: string;
+  duringRating: number;
+  duringNotes: string;
+}
+
+/** This user's pre- and during-festival ratings (numbers and notes) together for every band
+ * they've rated (either kind) in this group — the Fest Recap page needs both sides together
+ * to compare them and to feed the AI recap, unlike usePreRating/useUserPreRatings which only
+ * ever need the one number. */
+export function useUserRatings(groupCode: string, userName: string): Map<string, UserRatingPair> {
   const rows = useLiveQuery(
     () =>
       db.ratings
@@ -68,7 +73,10 @@ export function useUserRatings(
   return useMemo(
     () =>
       new Map(
-        (rows ?? []).map((r) => [r.bandId, { preRating: r.preRating, duringRating: r.duringRating }]),
+        (rows ?? []).map((r) => [
+          r.bandId,
+          { preRating: r.preRating, preNotes: r.preNotes, duringRating: r.duringRating, duringNotes: r.duringNotes },
+        ]),
       ),
     [rows],
   );

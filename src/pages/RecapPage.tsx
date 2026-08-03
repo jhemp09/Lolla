@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Band, Day } from "../types";
@@ -6,13 +7,18 @@ import { useAllBands } from "../state/useBands";
 import { useUserRatings } from "../state/useRatings";
 import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
+import { useSession } from "../state/useAuth";
 import { useOpenBandDetail } from "../state/useSelectedBand";
 import { BandCardHeader } from "../components/BandCardHeader";
+import { generateAiRecap } from "../lib/aiRecap";
+import type { RecapAct } from "../lib/aiRecap";
 
 interface RecapRow {
   band: Band;
   preRating: number;
+  preNotes: string;
   duringRating: number;
+  duringNotes: string;
   /** duringRating - preRating, with an unrated pre-fest band treated as a 0 — so a band
    * nobody pre-rated at all still counts as a "low or no ranking" for surprise purposes. */
   diff: number;
@@ -74,6 +80,51 @@ function StatsCard({ stats }: { stats: RecapStats }) {
   );
 }
 
+type AiRecapState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "done"; text: string }
+  | { status: "error"; message: string };
+
+/** Sends this user's rated acts (numbers + notes, both pre- and during-fest) to the /api/recap
+ * serverless function and shows back whatever funny summary the LLM writes. Generation is a
+ * deliberate button press, not automatic — it's a paid API call the user should choose to make. */
+function AiRecapSection({ userName, acts }: { userName: string; acts: RecapAct[] }) {
+  const { session } = useSession();
+  const [state, setState] = useState<AiRecapState>({ status: "idle" });
+
+  async function handleGenerate() {
+    if (!session) return;
+    setState({ status: "loading" });
+    try {
+      const text = await generateAiRecap(session.access_token, userName, acts);
+      setState({ status: "done", text });
+    } catch (err) {
+      setState({ status: "error", message: err instanceof Error ? err.message : "Couldn't generate a recap — try again." });
+    }
+  }
+
+  return (
+    <div className="ai-recap-card">
+      <div className="sync-row" style={{ marginTop: 0 }}>
+        <h2 style={{ fontSize: 16 }}>Your Festival, As Told By AI</h2>
+        <button className="secondary-btn" onClick={handleGenerate} disabled={state.status === "loading"}>
+          {state.status === "loading" ? "…" : state.status === "done" || state.status === "error" ? "Regenerate" : "Generate"}
+        </button>
+      </div>
+      {state.status === "idle" && (
+        <p className="status-text" style={{ marginTop: 10 }}>
+          A short, funny AI-written recap of your festival, based on your ratings and notes.
+        </p>
+      )}
+      {state.status === "error" && (
+        <p className="status-text err" style={{ marginTop: 10 }}>{state.message}</p>
+      )}
+      {state.status === "done" && <p className="ai-recap-text">{state.text}</p>}
+    </div>
+  );
+}
+
 function RecapCard({ row, badge }: { row: RecapRow; badge: ReactNode }) {
   const open = useOpenBandDetail(row.band.id);
   return (
@@ -108,7 +159,9 @@ export function RecapPage() {
       rated.push({
         band,
         preRating: r.preRating,
+        preNotes: r.preNotes,
         duringRating: r.duringRating,
+        duringNotes: r.duringNotes,
         diff: r.duringRating - r.preRating,
       });
     }
@@ -152,9 +205,22 @@ export function RecapPage() {
     );
   }
 
+  const acts: RecapAct[] = ranked.map((row) => ({
+    name: row.band.name,
+    genre: row.band.genre,
+    stage: row.band.stage,
+    day: DAY_LABELS[row.band.day],
+    preRating: row.preRating,
+    preNotes: row.preNotes,
+    duringRating: row.duringRating,
+    duringNotes: row.duringNotes,
+  }));
+
   return (
     <div className="main">
       <StatsCard stats={stats} />
+
+      <AiRecapSection userName={userName} acts={acts} />
 
       {surprises.length > 0 && (
         <>
