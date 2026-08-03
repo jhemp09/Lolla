@@ -90,7 +90,9 @@ them in second person. Call out their biggest surprises (low hype or unrated goi
 actual rating) and biggest letdowns (high hype, low actual rating) by name. Based on the \
 genres and acts they rated highest, playfully guess what "type" of festival-goer they are. \
 Keep the humor warm and affectionate, never mean-spirited, and don't just list every act —\
-pick out the interesting stories the ratings and notes tell.`;
+pick out the interesting stories the ratings and notes tell. Write in plain prose only — no \
+markdown, no asterisks or bold/italic formatting, no bullet points or headers, since this is \
+displayed as plain text.`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
