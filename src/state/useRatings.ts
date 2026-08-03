@@ -49,6 +49,31 @@ export function useUserPreRatings(groupCode: string, userName: string): Map<stri
   return useMemo(() => new Map((rows ?? []).map((r) => [r.bandId, r.preRating])), [rows]);
 }
 
+/** This user's pre- and during-festival ratings together for every band they've rated
+ * (either kind) in this group — the Fest Recap page needs both numbers side by side to
+ * compare them, unlike usePreRating/useUserPreRatings which only ever need the one. */
+export function useUserRatings(
+  groupCode: string,
+  userName: string,
+): Map<string, { preRating: number; duringRating: number }> {
+  const rows = useLiveQuery(
+    () =>
+      db.ratings
+        .where("groupCode")
+        .equals(groupCode)
+        .filter((r) => r.userName === userName)
+        .toArray(),
+    [groupCode, userName],
+  );
+  return useMemo(
+    () =>
+      new Map(
+        (rows ?? []).map((r) => [r.bandId, { preRating: r.preRating, duringRating: r.duringRating }]),
+      ),
+    [rows],
+  );
+}
+
 /** Every group member's pre-festival rating for one band — what actually feeds the
  * group schedule's scoring, surfaced directly so a "why isn't this winning its slot"
  * question can be answered by looking, not guessing. Zero-rated/unrated members are

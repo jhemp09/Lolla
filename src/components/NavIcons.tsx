@@ -32,6 +32,14 @@ export function ScheduleIcon() {
   );
 }
 
+export function RecapIcon() {
+  return (
+    <svg {...commonProps} aria-hidden="true">
+      <path d="M12 3.5l2.47 5.06 5.53.82-4 3.94.94 5.55L12 16.1l-4.94 2.77.94-5.55-4-3.94 5.53-.82z" />
+    </svg>
+  );
+}
+
 export function SyncIcon() {
   return (
     <svg {...commonProps} aria-hidden="true">
