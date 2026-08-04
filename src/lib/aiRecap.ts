@@ -9,6 +9,13 @@ export interface RecapAct {
   duringNotes: string;
 }
 
+/** The prompt asks the model for plain prose, but that's a request, not a guarantee — strip
+ * markdown emphasis markers so a stray "**band name**" doesn't show up as literal asterisks
+ * in what's rendered as plain text. */
+function stripMarkdownEmphasis(text: string): string {
+  return text.replace(/(\*\*?|__?)(\S.*?\S|\S)\1/g, "$2");
+}
+
 /** Posts the user's pre/during ratings + notes to the /api/recap serverless function, which
  * holds the actual LLM API key server-side — the client never sees or could leak it. */
 export async function generateAiRecap(accessToken: string, userName: string, acts: RecapAct[]): Promise<string> {
@@ -22,5 +29,5 @@ export async function generateAiRecap(accessToken: string, userName: string, act
   if (!response.ok || typeof data?.text !== "string") {
     throw new Error(data?.error || "Couldn't generate a recap — try again.");
   }
-  return data.text;
+  return stripMarkdownEmphasis(data.text);
 }
