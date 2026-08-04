@@ -9,6 +9,7 @@ import { useUserName } from "../state/useUser";
 import { useGroupCode } from "../state/useGroup";
 import { useSession } from "../state/useAuth";
 import { useOpenBandDetail } from "../state/useSelectedBand";
+import { usePersistedState } from "../state/usePersistedState";
 import { BandCardHeader } from "../components/BandCardHeader";
 import { generateAiRecap } from "../lib/aiRecap";
 import type { RecapAct } from "../lib/aiRecap";
@@ -80,27 +81,29 @@ function StatsCard({ stats }: { stats: RecapStats }) {
   );
 }
 
-type AiRecapState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "done"; text: string }
-  | { status: "error"; message: string };
-
 /** Sends this user's rated acts (numbers + notes, both pre- and during-fest) to the /api/recap
  * serverless function and shows back whatever funny summary the LLM writes. Generation is a
- * deliberate button press, not automatic — it's a paid API call the user should choose to make. */
-function AiRecapSection({ userName, acts }: { userName: string; acts: RecapAct[] }) {
+ * deliberate button press, not automatic — it's a paid API call the user should choose to make.
+ * The result is persisted to localStorage (keyed per group+user) rather than kept in memory,
+ * so switching tabs or reloading the page doesn't silently throw away a paid generation and
+ * force a re-roll just to see it again. */
+function AiRecapSection({ userName, groupCode, acts }: { userName: string; groupCode: string; acts: RecapAct[] }) {
   const { session } = useSession();
-  const [state, setState] = useState<AiRecapState>({ status: "idle" });
+  const [text, setText] = usePersistedState<string>(`lolla-ai-recap-${groupCode}-${userName}`, "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
     if (!session) return;
-    setState({ status: "loading" });
+    setLoading(true);
+    setError(null);
     try {
-      const text = await generateAiRecap(session.access_token, userName, acts);
-      setState({ status: "done", text });
+      const result = await generateAiRecap(session.access_token, userName, acts);
+      setText(result);
     } catch (err) {
-      setState({ status: "error", message: err instanceof Error ? err.message : "Couldn't generate a recap — try again." });
+      setError(err instanceof Error ? err.message : "Couldn't generate a recap — try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -108,19 +111,17 @@ function AiRecapSection({ userName, acts }: { userName: string; acts: RecapAct[]
     <div className="ai-recap-card">
       <div className="sync-row" style={{ marginTop: 0 }}>
         <h2 style={{ fontSize: 16 }}>Your Festival, As Told By AI</h2>
-        <button className="secondary-btn" onClick={handleGenerate} disabled={state.status === "loading"}>
-          {state.status === "loading" ? "…" : state.status === "done" || state.status === "error" ? "Regenerate" : "Generate"}
+        <button className="secondary-btn" onClick={handleGenerate} disabled={loading}>
+          {loading ? "…" : text ? "Regenerate" : "Generate"}
         </button>
       </div>
-      {state.status === "idle" && (
+      {!text && !error && (
         <p className="status-text" style={{ marginTop: 10 }}>
           A short, funny AI-written recap of your festival, based on your ratings and notes.
         </p>
       )}
-      {state.status === "error" && (
-        <p className="status-text err" style={{ marginTop: 10 }}>{state.message}</p>
-      )}
-      {state.status === "done" && <p className="ai-recap-text">{state.text}</p>}
+      {error && <p className="status-text err" style={{ marginTop: 10 }}>{error}</p>}
+      {text && <p className="ai-recap-text">{text}</p>}
     </div>
   );
 }
@@ -220,7 +221,7 @@ export function RecapPage() {
     <div className="main">
       <StatsCard stats={stats} />
 
-      <AiRecapSection userName={userName} acts={acts} />
+      <AiRecapSection userName={userName} groupCode={groupCode} acts={acts} />
 
       {surprises.length > 0 && (
         <>
